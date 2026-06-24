@@ -325,11 +325,68 @@ Contaya implementa un sistema de diseño completo basado en variables CSS para m
 - **Sombras y profundidad** para elementos interactivos
 - **Feedback táctil** en botones y cards
 
-### Flujo de Trabajo UI/UX
-1. **Consistencia**: Todas las páginas usan el mismo sistema de variables CSS
-2. **Accesibilidad**: Contraste adecuado, estados focus visibles
-3. **Performance**: Animaciones optimizadas, carga progresiva
-4. **Usabilidad**: Feedback inmediato en todas las interacciones
+### 🔄 **Navegación Consistente en Todas las Páginas**
+Todas las páginas autenticadas implementan una barra de navegación superior uniforme:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Contaya ← Volver al Dashboard            Cerrar sesión      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Componentes de navegación:**
+- **Logo "Contaya"**: Enlace al home con efectos hover
+- **"← Volver al Dashboard"**: Navegación principal entre módulos
+- **"Cerrar sesión"**: Botón con transiciones suaves
+
+#### 📋 **Páginas con Navegación Mejorada**
+
+##### 📄 **Clientes (`/clientes`)**
+- **Barra de navegación completa** con logo y botones
+- **Estadísticas en tiempo real**: Total clientes, facturas, monto facturado
+- **Cards interactivas** con información detallada por cliente
+- **Diseño responsive** con grid adaptable
+
+##### 📤 **Subir Documentos (`/upload`)**
+- **Drag & drop** para carga intuitiva de archivos
+- **Área de carga interactiva** con estados visuales
+- **Formatos soportados**: PDF, imágenes, CSV, Excel
+- **Feedback inmediato** después de la carga
+- **Loading states** con spinner animado
+
+##### 📊 **Declaraciones Tributarias (`/declarations`)**
+- **Cards organizadas** por tipo de declaración (IVA, Renta, ICA)
+- **Tabla de vencimientos** con días restantes calculados
+- **Estados visuales**: Completada ✅, Pendiente ⏳, Vencida ⚠️
+- **Priorización** por importancia (Alta/Media)
+- **Información contextual** sobre multas e intereses
+
+#### 🎯 **Experiencia de Usuario Unificada**
+1. **Consistencia visual**: Mismo sistema de colores, tipografía y espaciado
+2. **Feedback inmediato**: Loading states, mensajes de error, confirmaciones
+3. **Accesibilidad**: Contraste adecuado, estados focus visibles
+4. **Responsive design**: Adaptación a móviles, tablets y desktop
+
+#### 🔧 **Técnicas Implementadas**
+- **Variables CSS** para consistencia en toda la aplicación
+- **Animaciones fade-in** para carga progresiva de contenido
+- **Hover effects** en elementos interactivos
+- **Transiciones suaves** entre estados
+- **Gestión de cache** con parámetros de versión
+
+### 🚀 **Flujo de Trabajo Optimizado**
+1. **Login** → Dashboard con acceso rápido a todos los módulos
+2. **Navegación lateral** en Dashboard para administración de usuarios
+3. **Navegación superior** en todas las páginas para retorno al Dashboard
+4. **Logout** accesible desde cualquier página autenticada
+
+### 📈 **Próximas Mejoras Planeadas**
+- **Dashboard con gráficos** interactivos de rendimiento
+- **Sistema de notificaciones** toast para eventos importantes
+- **Modo oscuro/claro** para preferencias de usuario
+- **Componentes de formulario** reutilizables
+- **Exportación de datos** en formatos PDF/Excel
+- **Búsqueda avanzada** con filtros combinados
 
 ## Licencia
 
