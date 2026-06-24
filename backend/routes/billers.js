@@ -1,8 +1,28 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
+const { spawn } = require('child_process');
+const path = require('path');
 const pool = require('../db/pool');
 const { authMiddleware, adminOnly } = require('../middleware/auth');
+
+function launchScraper(billerId, user, pass) {
+  const scraperPath = path.join(__dirname, '../../scraper/index.js');
+  const env = {
+    ...process.env,
+    FACTURATECH_USER: user,
+    FACTURATECH_PASS: pass,
+  };
+
+  const child = spawn('node', [scraperPath, `--biller-id=${billerId}`], {
+    env,
+    detached: true,
+    stdio: 'ignore',
+  });
+
+  child.unref();
+  console.log(`[scraper] launched for biller ${billerId} (pid will detach)`);
+}
 
 router.use(authMiddleware);
 
@@ -29,14 +49,26 @@ router.get('/', async (req, res) => {
 
 router.post('/', adminOnly, async (req, res) => {
   try {
-    const { name, document_type, document_number, email, phone, address, city, password } = req.body;
+    const { name, document_type, document_number, email, phone, address, city, password, facturatech_user, facturatech_pass } = req.body;
     const hash = password ? await bcrypt.hash(password, 10) : null;
     const { rows } = await pool.query(
-      `INSERT INTO billers (name, document_type, document_number, email, phone, address, city, password)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, name, document_number, email, phone, is_active`,
+      `INSERT INTO billers (name, document_type, document_number, email, phone, address, city, password, scrape_status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pending') RETURNING id, name, document_number, email, phone, is_active, scrape_status`,
       [name, document_type || 'NIT', document_number, email, phone, address, city, hash]
     );
-    res.status(201).json(rows[0]);
+    const biller = rows[0];
+
+    // Lanzar scraper en background si se proveyeron credenciales de Facturatech
+    if (facturatech_user && facturatech_pass) {
+      await pool.query(
+        `UPDATE billers SET scrape_status='running', scrape_last_run=NOW() WHERE id=$1`,
+        [biller.id]
+      );
+      biller.scrape_status = 'running';
+      launchScraper(biller.id, facturatech_user, facturatech_pass);
+    }
+
+    res.status(201).json(biller);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

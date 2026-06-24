@@ -4,13 +4,28 @@ import bcrypt from 'bcryptjs';
 
 const { Pool } = pg;
 const pool = new Pool({
-  user: 'contaya', host: 'localhost', database: 'contaya',
-  password: 'contaya123', port: 5432,
+  user: process.env.DB_USER || 'contaya',
+  host: process.env.DB_HOST || 'localhost',
+  database: process.env.DB_NAME || 'contaya',
+  password: process.env.DB_PASSWORD || 'contaya123',
+  port: parseInt(process.env.DB_PORT || '5432'),
 });
 
 const USER = process.argv.find(a => a.startsWith('--user='))?.split('=')[1] || process.env.FACTURATECH_USER || '72005672';
 const PASS = process.argv.find(a => a.startsWith('--pass='))?.split('=')[1] || process.env.FACTURATECH_PASS || 'Ortega2026$';
 const BILLER_ID = process.argv.find(a => a.startsWith('--biller-id='))?.split('=')[1] || null;
+
+async function setScrapeStatus(status, errorMsg = null) {
+  if (!BILLER_ID) return;
+  try {
+    await pool.query(
+      `UPDATE billers SET scrape_status=$1, scrape_last_run=NOW(), scrape_error=$2 WHERE id=$3`,
+      [status, errorMsg, BILLER_ID]
+    );
+  } catch (e) {
+    console.error('[scraper] Failed to update scrape_status:', e.message);
+  }
+}
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -186,6 +201,7 @@ async function scrape() {
 
     if (allDocs.size === 0) {
       console.log('No documents found');
+      await setScrapeStatus('done');
       return;
     }
 
@@ -229,9 +245,11 @@ async function scrape() {
 
     await page.screenshot({ path: '/tmp/facturatech_result.png', fullPage: true });
     console.log('\nDone — screenshot saved');
+    await setScrapeStatus('done');
   } catch (err) {
     console.error('Error:', err.message);
     try { await page.screenshot({ path: '/tmp/facturatech_error.png' }); } catch (_) {}
+    await setScrapeStatus('error', err.message);
   } finally {
     await browser.close();
     await pool.end();
