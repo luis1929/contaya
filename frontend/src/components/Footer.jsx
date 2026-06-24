@@ -1,52 +1,12 @@
 const styles = {
-  footer: {
-    background: '#070712',
-    color: '#64748b',
-    padding: '4rem 2rem 2rem',
-  },
-  container: {
-    maxWidth: '1200px',
-    margin: '0 auto',
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '3rem',
-    marginBottom: '3rem',
-  },
-  brand: {
-    fontSize: '1.5rem',
-    fontWeight: '700',
-    color: '#e2e8f0',
-    marginBottom: '0.75rem',
-  },
-  desc: {
-    lineHeight: '1.7',
-    fontSize: '0.9rem',
-    maxWidth: '300px',
-  },
-  colTitle: {
-    color: '#94a3b8',
-    fontWeight: '600',
-    fontSize: '0.85rem',
-    textTransform: 'uppercase',
-    letterSpacing: '0.1em',
-    marginBottom: '1rem',
-  },
-  link: {
-    display: 'block',
-    color: '#64748b',
-    textDecoration: 'none',
-    fontSize: '0.9rem',
-    marginBottom: '0.5rem',
-    cursor: 'pointer',
-  },
-  bottom: {
-    borderTop: '1px solid rgba(255, 255, 255, 0.06)',
-    paddingTop: '2rem',
-    textAlign: 'center',
-    fontSize: '0.85rem',
-  },
+  footer: { background: '#070712', color: '#64748b', padding: '4rem 2rem 2rem' },
+  container: { maxWidth: '1200px', margin: '0 auto' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '3rem', marginBottom: '3rem' },
+  brand: { fontSize: '1.5rem', fontWeight: '700', color: '#e2e8f0', marginBottom: '0.75rem' },
+  desc: { lineHeight: '1.7', fontSize: '0.9rem', maxWidth: '300px' },
+  colTitle: { color: '#94a3b8', fontWeight: '600', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1rem' },
+  link: { display: 'block', color: '#64748b', textDecoration: 'none', fontSize: '0.9rem', marginBottom: '0.5rem', cursor: 'pointer' },
+  bottom: { borderTop: '1px solid rgba(255, 255, 255, 0.06)', paddingTop: '2rem', textAlign: 'center', fontSize: '0.85rem' },
 };
 
 export default function Footer() {
@@ -56,7 +16,7 @@ export default function Footer() {
         <div style={styles.grid}>
           <div>
             <div style={styles.brand}>Contaya</div>
-            <p style={styles.desc}>Sistema profesional de gestión de menús para restaurantes modernos.</p>
+            <p style={styles.desc}>Plataforma inteligente de gestión contable y fiscal para empresas modernas.</p>
           </div>
           <div>
             <div style={styles.colTitle}>Producto</div>
