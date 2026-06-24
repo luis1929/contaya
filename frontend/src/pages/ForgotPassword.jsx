@@ -4,37 +4,36 @@ import { Link } from 'react-router-dom';
 const s = {
   section: {
     minHeight: '100vh',
-    background: 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)',
+    background: 'linear-gradient(135deg, #1e3a8a, #2563eb)',
     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem',
   },
   card: {
-    background: 'rgba(255, 255, 255, 0.03)',
-    border: '1px solid rgba(255, 255, 255, 0.06)',
-    borderRadius: '16px', padding: '3rem',
-    width: '100%', maxWidth: '480px',
+    background: '#fff', borderRadius: '12px', padding: '3rem',
+    width: '100%', maxWidth: '440px', boxShadow: '0 4px 24px rgba(0,0,0,0.1)',
   },
   title: {
-    fontSize: 'clamp(1.5rem, 4vw, 2rem)',
-    fontWeight: '700', color: '#fff', marginBottom: '0.5rem', textAlign: 'center',
+    fontSize: 'clamp(1.5rem, 4vw, 1.75rem)',
+    fontWeight: '700', color: '#111827', marginBottom: '0.25rem', textAlign: 'center',
   },
   subtitle: {
-    color: '#94a3b8', textAlign: 'center', marginBottom: '2rem', fontSize: '0.95rem',
+    color: '#6b7280', textAlign: 'center', marginBottom: '2rem', fontSize: '0.95rem',
   },
   field: { marginBottom: '1.25rem' },
-  label: { display: 'block', color: '#cbd5e1', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.375rem' },
+  label: { display: 'block', color: '#374151', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.375rem' },
   input: {
-    width: '100%', padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.05)',
-    border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: '#fff',
+    width: '100%', padding: '0.75rem 1rem', background: '#fff',
+    border: '1px solid #d1d5db', borderRadius: '8px', color: '#111827',
     fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box',
   },
   btn: {
-    width: '100%', padding: '0.875rem', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-    color: '#fff', border: 'none', borderRadius: '12px', fontSize: '1rem', fontWeight: '600', cursor: 'pointer',
+    width: '100%', padding: '0.875rem', background: '#2563eb',
+    color: '#fff', border: 'none', borderRadius: '8px',
+    fontSize: '1rem', fontWeight: '600', cursor: 'pointer',
   },
-  back: { textAlign: 'center', marginTop: '1.5rem', color: '#94a3b8', fontSize: '0.9rem' },
-  backA: { color: '#818cf8', textDecoration: 'none', fontWeight: '500' },
-  success: { color: '#34d399', fontSize: '0.875rem', textAlign: 'center', marginBottom: '1rem' },
-  error: { color: '#f87171', fontSize: '0.875rem', textAlign: 'center', marginBottom: '1rem' },
+  back: { textAlign: 'center', marginTop: '1.5rem', color: '#6b7280', fontSize: '0.9rem' },
+  backA: { color: '#2563eb', textDecoration: 'none', fontWeight: '500' },
+  success: { color: '#16a34a', fontSize: '0.875rem', textAlign: 'center', marginBottom: '1rem' },
+  error: { color: '#dc2626', fontSize: '0.875rem', textAlign: 'center', marginBottom: '1rem' },
 };
 
 export default function ForgotPassword() {

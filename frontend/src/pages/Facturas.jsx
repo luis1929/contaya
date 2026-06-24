@@ -2,54 +2,28 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const s = {
-  page: { minHeight: '100vh', background: '#0f0c29', color: '#fff', fontFamily: 'system-ui, sans-serif' },
-  top: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem 2rem', borderBottom: '1px solid rgba(255,255,255,0.06)' },
-  logo: { fontSize: '1.25rem', fontWeight: '700', color: '#818cf8' },
-  back: { color: '#94a3b8', textDecoration: 'none', fontSize: '0.9rem' },
+  page: { minHeight: '100vh', background: '#f8fafc', color: '#111827', fontFamily: 'system-ui, sans-serif' },
+  top: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 2rem', borderBottom: '1px solid #e5e7eb', background: '#fff' },
+  logo: { fontSize: '1.25rem', fontWeight: '700', color: '#1e40af' },
+  back: { color: '#4b5563', textDecoration: 'none', fontSize: '0.9rem', fontWeight: '500' },
   main: { maxWidth: '1200px', margin: '0 auto', padding: '2rem' },
   title: { fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.5rem' },
-  filters: {
-    display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '2rem',
-    alignItems: 'end',
-  },
+  filters: { display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '2rem', alignItems: 'end' },
   field: { display: 'flex', flexDirection: 'column', gap: '0.25rem' },
-  label: { color: '#94a3b8', fontSize: '0.75rem', fontWeight: '500' },
-  input: {
-    padding: '0.5rem 0.75rem', background: 'rgba(255,255,255,0.05)',
-    border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px',
-    color: '#fff', fontSize: '0.85rem', outline: 'none',
-  },
-  select: {
-    padding: '0.5rem 0.75rem', background: 'rgba(255,255,255,0.05)',
-    border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px',
-    color: '#fff', fontSize: '0.85rem', outline: 'none', cursor: 'pointer',
-  },
-  btn: {
-    padding: '0.5rem 1rem', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-    color: '#fff', border: 'none', borderRadius: '8px',
-    fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer',
-    height: '36px',
-  },
-  table: {
-    width: '100%', borderCollapse: 'collapse',
-    background: 'rgba(255,255,255,0.02)', borderRadius: '12px', overflow: 'hidden',
-  },
-  th: {
-    padding: '0.75rem 1rem', textAlign: 'left', color: '#94a3b8',
-    fontSize: '0.75rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em',
-    borderBottom: '1px solid rgba(255,255,255,0.06)',
-  },
-  td: {
-    padding: '0.75rem 1rem', fontSize: '0.85rem',
-    borderBottom: '1px solid rgba(255,255,255,0.04)',
-  },
+  label: { color: '#6b7280', fontSize: '0.75rem', fontWeight: '500' },
+  input: { padding: '0.5rem 0.75rem', background: '#fff', border: '1px solid #d1d5db', borderRadius: '8px', color: '#111827', fontSize: '0.85rem', outline: 'none' },
+  select: { padding: '0.5rem 0.75rem', background: '#fff', border: '1px solid #d1d5db', borderRadius: '8px', color: '#111827', fontSize: '0.85rem', outline: 'none', cursor: 'pointer' },
+  btn: { padding: '0.5rem 1rem', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer', height: '36px' },
+  table: { width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e5e7eb' },
+  th: { padding: '0.75rem 1rem', textAlign: 'left', color: '#6b7280', fontSize: '0.75rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #e5e7eb', background: '#f9fafb' },
+  td: { padding: '0.75rem 1rem', fontSize: '0.85rem', borderBottom: '1px solid #f3f4f6' },
   status: (v) => ({
     display: 'inline-block', padding: '0.2rem 0.6rem', borderRadius: '999px',
     fontSize: '0.7rem', fontWeight: '500',
-    background: v === 'Firmado' ? 'rgba(52,211,153,0.1)' : 'rgba(251,191,36,0.1)',
-    color: v === 'Firmado' ? '#34d399' : '#fbbf24',
+    background: v === 'Firmado' ? '#dcfce7' : '#fef3c7',
+    color: v === 'Firmado' ? '#16a34a' : '#d97706',
   }),
-  empty: { textAlign: 'center', color: '#64748b', padding: '3rem', fontSize: '0.9rem' },
+  empty: { textAlign: 'center', color: '#9ca3af', padding: '3rem', fontSize: '0.9rem' },
 };
 
 function fmt(n) {
@@ -151,7 +125,7 @@ export default function Facturas() {
                     <td style={s.td}>{inv.client_name || (inv.client || '').split('...')[0]}</td>
                     <td style={s.td}>{inv.created_at?.slice(0, 10)}</td>
                     <td style={{ ...s.td, fontWeight: '600' }}>{fmt(inv.total)}</td>
-                    <td style={{ ...s.td, color: '#a5b4fc' }}>{fmt(iva(inv.total))}</td>
+                    <td style={{ ...s.td, color: '#2563eb' }}>{fmt(iva(inv.total))}</td>
                     <td style={s.td}><span style={s.status(inv.status)}>{inv.status}</span></td>
                   </tr>
                 ))}

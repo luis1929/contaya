@@ -4,48 +4,44 @@ import { Link, useNavigate } from 'react-router-dom';
 const s = {
   section: {
     minHeight: '100vh',
-    background: 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)',
+    background: 'linear-gradient(135deg, #1e3a8a, #2563eb)',
     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem',
   },
   card: {
-    background: 'rgba(255, 255, 255, 0.03)',
-    border: '1px solid rgba(255, 255, 255, 0.06)',
-    borderRadius: '16px', padding: '3rem',
-    width: '100%', maxWidth: '480px',
+    background: '#fff', borderRadius: '12px', padding: '3rem',
+    width: '100%', maxWidth: '440px', boxShadow: '0 4px 24px rgba(0,0,0,0.1)',
   },
   title: {
-    fontSize: 'clamp(1.5rem, 4vw, 2rem)',
-    fontWeight: '700', color: '#fff',
-    marginBottom: '0.5rem', textAlign: 'center',
+    fontSize: 'clamp(1.5rem, 4vw, 1.75rem)',
+    fontWeight: '700', color: '#111827',
+    marginBottom: '0.25rem', textAlign: 'center',
   },
   subtitle: {
-    color: '#94a3b8', textAlign: 'center',
+    color: '#6b7280', textAlign: 'center',
     marginBottom: '2rem', fontSize: '0.95rem',
   },
   field: { marginBottom: '1.25rem' },
   label: {
-    display: 'block', color: '#cbd5e1',
+    display: 'block', color: '#374151',
     fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.375rem',
   },
   input: {
     width: '100%', padding: '0.75rem 1rem',
-    background: 'rgba(255,255,255,0.05)',
-    border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: '10px', color: '#fff',
+    background: '#fff',
+    border: '1px solid #d1d5db', borderRadius: '8px', color: '#111827',
     fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box',
   },
   btn: {
     width: '100%', padding: '0.875rem',
-    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-    color: '#fff', border: 'none', borderRadius: '12px',
+    background: '#2563eb', color: '#fff', border: 'none', borderRadius: '8px',
     fontSize: '1rem', fontWeight: '600', cursor: 'pointer',
   },
   link: {
     textAlign: 'center', marginTop: '1.5rem',
-    color: '#94a3b8', fontSize: '0.9rem',
+    color: '#6b7280', fontSize: '0.9rem',
   },
-  linkA: { color: '#818cf8', textDecoration: 'none', fontWeight: '500' },
-  error: { color: '#f87171', fontSize: '0.875rem', textAlign: 'center', marginBottom: '1rem' },
+  linkA: { color: '#2563eb', textDecoration: 'none', fontWeight: '500' },
+  error: { color: '#dc2626', fontSize: '0.875rem', textAlign: 'center', marginBottom: '1rem' },
 };
 
 export default function Login() {
@@ -89,7 +85,7 @@ export default function Login() {
             <input style={s.input} type="password" value={password} onChange={e => setPassword(e.target.value)} required />
           </div>
           <div style={{ textAlign: 'right', marginBottom: '1rem' }}>
-            <a href="/forgot-password" style={{ color: '#818cf8', fontSize: '0.85rem', textDecoration: 'none' }}>¿Olvidaste tu contraseña?</a>
+            <a href="/forgot-password" style={{ color: '#2563eb', fontSize: '0.85rem', textDecoration: 'none' }}>¿Olvidaste tu contraseña?</a>
           </div>
           <button style={s.btn} type="submit">Entrar</button>
         </form>
