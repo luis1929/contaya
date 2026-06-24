@@ -56,21 +56,46 @@ const s = {
     minHeight: '100vh', color: '#6b7280', fontSize: '1rem',
   },
   billerGrid: {
-    display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-    gap: '1rem', marginBottom: '2.5rem',
+    display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+    gap: '1rem',
   },
-  billerCard: {
-    background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px',
-    padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem',
-  },
+  billerCard: (active) => ({
+    background: '#fff', border: `1px solid ${active ? '#e5e7eb' : '#fecaca'}`,
+    borderRadius: '12px', padding: '1.25rem',
+    display: 'flex', flexDirection: 'column', gap: '0.5rem',
+    opacity: active ? 1 : 0.6,
+    transition: 'opacity .2s',
+  }),
   billerName: { fontSize: '1.1rem', fontWeight: '700', color: '#111827' },
   billerMeta: { color: '#6b7280', fontSize: '0.8rem' },
-  billerEnter: {
-    alignSelf: 'flex-start', marginTop: '0.5rem',
-    padding: '0.5rem 1.25rem', background: '#2563eb', color: '#fff',
-    border: 'none', borderRadius: '8px', fontSize: '0.85rem',
-    fontWeight: '600', cursor: 'pointer',
+  row: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem',
   },
+  toggle: {
+    position: 'relative', display: 'inline-block', width: '40px', height: '22px',
+    flexShrink: 0,
+  },
+  toggleInput: {
+    opacity: 0, width: 0, height: 0,
+  },
+  toggleSlider: (on) => ({
+    position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
+    borderRadius: '22px',
+    background: on ? '#2563eb' : '#d1d5db',
+    transition: '.3s',
+  }),
+  toggleKnob: (on) => ({
+    position: 'absolute', top: '2px', left: on ? '20px' : '2px',
+    width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
+    transition: '.3s',
+  }),
+  enterBtn: (active) => ({
+    padding: '0.5rem 1.25rem',
+    background: active ? '#2563eb' : '#9ca3af',
+    color: '#fff', border: 'none', borderRadius: '8px',
+    fontSize: '0.85rem', fontWeight: '600', cursor: active ? 'pointer' : 'not-allowed',
+  }),
+  empty: { textAlign: 'center', color: '#9ca3af', padding: '3rem', fontSize: '0.9rem' },
 };
 
 function fmt(n) {
@@ -78,45 +103,137 @@ function fmt(n) {
   return '$' + Number(n).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function fmtDate(d) {
+  if (!d) return '';
+  return d.slice(0, 10);
+}
+
 export default function Dashboard() {
-  const [invoices, setInvoices] = useState([]);
-  const [summary, setSummary] = useState(null);
+  const [impersonating, setImpersonating] = useState(api.isImpersonating());
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const isAdmin = user.role === 'admin' && !impersonating;
+  const navigate = useNavigate();
+
+  // ——— Admin: Administración de usuarios ———
+  if (isAdmin) {
+    return <AdminUsersView navigate={navigate} />;
+  }
+
+  // ——— Biller / Impersonated: Dashboard de facturación ———
+  return <BillingDashboard impersonating={impersonating} navigate={navigate} />;
+}
+
+/* ─── ADMIN: Administración de Usuarios ─── */
+function AdminUsersView({ navigate }) {
   const [billers, setBillers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [impersonating, setImpersonating] = useState(api.isImpersonating());
-  const navigate = useNavigate();
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return navigate('/login');
+    api.getBillers()
+      .then(setBillers)
+      .catch(() => navigate('/login'))
+      .finally(() => setLoading(false));
+  }, [navigate]);
+
+  async function handleToggle(biller) {
+    const next = !biller.is_active;
+    try {
+      const updated = await api.updateBiller(biller.id, { is_active: next });
+      setBillers(prev => prev.map(b => b.id === biller.id ? { ...b, is_active: updated.is_active } : b));
+    } catch (err) {
+      alert('Error al actualizar estado');
+    }
+  }
+
+  async function handleEnter(biller) {
+    if (!biller.is_active) return;
+    try {
+      const data = await api.impersonate(biller.id);
+      localStorage.setItem('impersonate_token', data.token);
+      localStorage.setItem('impersonating', JSON.stringify({ biller_id: biller.id, name: biller.name }));
+      window.location.reload();
+    } catch (err) {
+      alert('Error al ingresar al cliente');
+    }
+  }
+
+  function handleLogout() {
+    localStorage.clear();
+    navigate('/');
+  }
+
+  if (loading) return <div style={s.loading}>Cargando...</div>;
+
+  return (
+    <div style={s.page}>
+      <div style={s.top}>
+        <span style={s.logo}>Contaya</span>
+        <button style={s.logout} onClick={handleLogout}>Cerrar sesión</button>
+      </div>
+      <div style={s.main}>
+        <h1 style={s.title}>Administración de usuarios</h1>
+        <p style={s.subtitle}>{billers.length} clientes registrados en la plataforma</p>
+
+        {billers.length === 0 ? (
+          <p style={s.empty}>No hay clientes registrados aún</p>
+        ) : (
+          <div style={s.billerGrid}>
+            {billers.map(b => (
+              <div key={b.id} style={s.billerCard(b.is_active)}>
+                <div style={s.row}>
+                  <div style={s.billerName}>{b.name}</div>
+                  <label style={s.toggle}>
+                    <input
+                      type="checkbox"
+                      style={s.toggleInput}
+                      checked={!!b.is_active}
+                      onChange={() => handleToggle(b)}
+                    />
+                    <span style={s.toggleSlider(!!b.is_active)} />
+                    <span style={s.toggleKnob(!!b.is_active)} />
+                  </label>
+                </div>
+
+                <div style={s.billerMeta}>NIT: {b.document_number}</div>
+                <div style={s.billerMeta}>
+                  {b.invoice_count || 0} facturas — Total: {fmt(b.total_sum)}
+                </div>
+                <div style={s.billerMeta}>
+                  Estado: {b.is_active ? 'Activo' : 'Inactivo'}
+                </div>
+
+                <button
+                  style={s.enterBtn(b.is_active)}
+                  onClick={() => handleEnter(b)}
+                  disabled={!b.is_active}
+                >
+                  {b.is_active ? 'Ingresar' : 'Desactivado'}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── BILLER / IMPERSONATED: Dashboard de facturación ─── */
+function BillingDashboard({ impersonating, navigate }) {
+  const [invoices, setInvoices] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem('token') || localStorage.getItem('impersonate_token');
     if (!token) return navigate('/login');
-
-    const promises = [api.getInvoices(), api.getInvoiceSummary()];
-
-    // If admin (not impersonating), also fetch billers list
-    if (!impersonating) {
-      promises.push(api.getBillers().catch(() => []));
-    }
-
-    Promise.all(promises)
-      .then(([inv, sum, billersData]) => {
-        setInvoices(inv);
-        setSummary(sum);
-        if (billersData) setBillers(billersData);
-      })
+    Promise.all([api.getInvoices(), api.getInvoiceSummary()])
+      .then(([inv, sum]) => { setInvoices(inv); setSummary(sum); })
       .catch(() => { localStorage.clear(); navigate('/login'); })
       .finally(() => setLoading(false));
-  }, [navigate, impersonating]);
-
-  async function handleEnterBiller(billerId, billerName) {
-    try {
-      const data = await api.impersonate(billerId);
-      localStorage.setItem('impersonate_token', data.token);
-      localStorage.setItem('impersonating', JSON.stringify({ biller_id: billerId, name: billerName }));
-      window.location.reload();
-    } catch (err) {
-      alert('Error al ingresar al facturador');
-    }
-  }
+  }, [navigate]);
 
   function handleLogout() {
     localStorage.clear();
@@ -133,32 +250,10 @@ export default function Dashboard() {
         <div>
           <Link to="/facturas" style={s.topLink}>Facturas</Link>
           <Link to="/clientes" style={s.topLink}>Clientes</Link>
-          <Link to="/" style={{ ...s.topLink, marginRight: 0 }}>Landing</Link>
           <button style={{ ...s.logout, marginLeft: '1rem' }} onClick={handleLogout}>Cerrar sesión</button>
         </div>
       </div>
       <div style={s.main}>
-        {/* Admin: Biller cards */}
-        {billers.length > 0 && (
-          <>
-            <h2 style={{ ...s.title, fontSize: '1.25rem', marginBottom: '1rem' }}>Facturadores</h2>
-            <div style={s.billerGrid}>
-              {billers.map(b => (
-                <div key={b.id} style={s.billerCard}>
-                  <div style={s.billerName}>{b.name}</div>
-                  <div style={s.billerMeta}>NIT: {b.document_number}</div>
-                  <div style={s.billerMeta}>
-                    {b.invoice_count || 0} facturas — Total: {fmt(b.total_sum)}
-                  </div>
-                  <button style={s.billerEnter} onClick={() => handleEnterBiller(b.id, b.name)}>
-                    Ingresar
-                  </button>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-
         <h1 style={s.title}>Panel de facturación</h1>
         <p style={s.subtitle}>{invoices.length} facturas encontradas</p>
 

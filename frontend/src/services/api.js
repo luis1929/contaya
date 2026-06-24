@@ -62,6 +62,10 @@ export const api = {
     const { data } = await client.post(`/auth/impersonate/${billerId}`);
     return data;
   },
+  updateBiller: async (id, data) => {
+    const { data: res } = await client.put(`/billers/${id}`, data);
+    return res;
+  },
   stopImpersonating() {
     localStorage.removeItem('impersonate_token');
     localStorage.removeItem('impersonating');
