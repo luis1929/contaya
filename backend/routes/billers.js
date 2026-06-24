@@ -12,7 +12,15 @@ router.get('/', async (req, res) => {
       const { rows } = await pool.query('SELECT id, name, document_number, email, phone, is_active FROM billers WHERE id = $1', [req.user.biller_id]);
       return res.json(rows);
     }
-    const { rows } = await pool.query('SELECT id, name, document_number, email, phone, is_active FROM billers ORDER BY name');
+    const { rows } = await pool.query(`
+      SELECT b.id, b.name, b.document_number, b.email, b.phone, b.is_active,
+        COUNT(i.id)::int AS invoice_count,
+        COALESCE(SUM(i.total), 0) AS total_sum
+      FROM billers b
+      LEFT JOIN invoices i ON i.biller_id = b.id
+      GROUP BY b.id
+      ORDER BY b.name
+    `);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });

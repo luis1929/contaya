@@ -2,8 +2,15 @@ import axios from 'axios';
 
 const client = axios.create({ baseURL: '/api' });
 
+function getToken() {
+  if (localStorage.getItem('impersonating')) {
+    return localStorage.getItem('impersonate_token');
+  }
+  return localStorage.getItem('token');
+}
+
 client.interceptors.request.use(config => {
-  const token = localStorage.getItem('token');
+  const token = getToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
@@ -46,5 +53,25 @@ export const api = {
   getMe: async () => {
     const { data } = await client.get('/auth/me');
     return data;
+  },
+  getBillers: async () => {
+    const { data } = await client.get('/billers');
+    return data;
+  },
+  impersonate: async (billerId) => {
+    const { data } = await client.post(`/auth/impersonate/${billerId}`);
+    return data;
+  },
+  stopImpersonating() {
+    localStorage.removeItem('impersonate_token');
+    localStorage.removeItem('impersonating');
+  },
+  isImpersonating() {
+    return !!localStorage.getItem('impersonating');
+  },
+  getImpersonatingInfo() {
+    try {
+      return JSON.parse(localStorage.getItem('impersonating'));
+    } catch { return null; }
   },
 };

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ImpersonateBanner from '../components/ImpersonateBanner';
 
 const s = {
   page: { minHeight: '100vh', background: '#f8fafc', color: '#111827', fontFamily: 'system-ui, sans-serif' },
@@ -23,18 +24,23 @@ function fmt(n) {
   return '$' + Number(n).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function authToken() {
+  if (localStorage.getItem('impersonating')) return localStorage.getItem('impersonate_token');
+  return localStorage.getItem('token');
+}
+
+function authHeaders() {
+  const token = authToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export default function Clients() {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  function authHeaders() {
-    const token = localStorage.getItem('token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  }
-
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = authToken();
     if (!token) return navigate('/login');
     fetch('/api/clients', { headers: authHeaders() })
       .then(r => { if (!r.ok) throw new Error(); return r.json(); })
@@ -52,6 +58,7 @@ export default function Clients() {
 
   return (
     <div style={s.page}>
+      <ImpersonateBanner />
       <div style={s.top}>
         <span style={s.logo}>Contaya</span>
         <div>

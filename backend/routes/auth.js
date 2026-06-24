@@ -95,4 +95,28 @@ router.get('/me', authMiddleware, async (req, res) => {
   }
 });
 
+router.post('/impersonate/:biller_id', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Solo administradores pueden impersonar' });
+    }
+    const { rows } = await pool.query(
+      'SELECT id, name, document_number FROM billers WHERE id = $1 AND is_active = true',
+      [req.params.biller_id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Facturador no encontrado' });
+    const biller = rows[0];
+    const token = jwt.sign({
+      biller_id: biller.id,
+      name: biller.name,
+      document_number: biller.document_number,
+      role: 'biller',
+      impersonated_by: req.user.id
+    }, JWT_SECRET, { expiresIn: '2h' });
+    res.json({ token, biller: { id: biller.id, name: biller.name, document_number: biller.document_number } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

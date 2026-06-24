@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { Link, useNavigate } from 'react-router-dom';
+import ImpersonateBanner from '../components/ImpersonateBanner';
 
 const s = {
   page: { minHeight: '100vh', background: '#f8fafc', color: '#111827', fontFamily: 'system-ui, sans-serif' },
@@ -54,6 +55,22 @@ const s = {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     minHeight: '100vh', color: '#6b7280', fontSize: '1rem',
   },
+  billerGrid: {
+    display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+    gap: '1rem', marginBottom: '2.5rem',
+  },
+  billerCard: {
+    background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px',
+    padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem',
+  },
+  billerName: { fontSize: '1.1rem', fontWeight: '700', color: '#111827' },
+  billerMeta: { color: '#6b7280', fontSize: '0.8rem' },
+  billerEnter: {
+    alignSelf: 'flex-start', marginTop: '0.5rem',
+    padding: '0.5rem 1.25rem', background: '#2563eb', color: '#fff',
+    border: 'none', borderRadius: '8px', fontSize: '0.85rem',
+    fontWeight: '600', cursor: 'pointer',
+  },
 };
 
 function fmt(n) {
@@ -64,17 +81,42 @@ function fmt(n) {
 export default function Dashboard() {
   const [invoices, setInvoices] = useState([]);
   const [summary, setSummary] = useState(null);
+  const [billers, setBillers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [impersonating, setImpersonating] = useState(api.isImpersonating());
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token') || localStorage.getItem('impersonate_token');
     if (!token) return navigate('/login');
-    Promise.all([api.getInvoices(), api.getInvoiceSummary()])
-      .then(([inv, sum]) => { setInvoices(inv); setSummary(sum); })
+
+    const promises = [api.getInvoices(), api.getInvoiceSummary()];
+
+    // If admin (not impersonating), also fetch billers list
+    if (!impersonating) {
+      promises.push(api.getBillers().catch(() => []));
+    }
+
+    Promise.all(promises)
+      .then(([inv, sum, billersData]) => {
+        setInvoices(inv);
+        setSummary(sum);
+        if (billersData) setBillers(billersData);
+      })
       .catch(() => { localStorage.clear(); navigate('/login'); })
       .finally(() => setLoading(false));
-  }, [navigate]);
+  }, [navigate, impersonating]);
+
+  async function handleEnterBiller(billerId, billerName) {
+    try {
+      const data = await api.impersonate(billerId);
+      localStorage.setItem('impersonate_token', data.token);
+      localStorage.setItem('impersonating', JSON.stringify({ biller_id: billerId, name: billerName }));
+      window.location.reload();
+    } catch (err) {
+      alert('Error al ingresar al facturador');
+    }
+  }
 
   function handleLogout() {
     localStorage.clear();
@@ -85,6 +127,7 @@ export default function Dashboard() {
 
   return (
     <div style={s.page}>
+      <ImpersonateBanner />
       <div style={s.top}>
         <span style={s.logo}>Contaya</span>
         <div>
@@ -95,6 +138,27 @@ export default function Dashboard() {
         </div>
       </div>
       <div style={s.main}>
+        {/* Admin: Biller cards */}
+        {billers.length > 0 && (
+          <>
+            <h2 style={{ ...s.title, fontSize: '1.25rem', marginBottom: '1rem' }}>Facturadores</h2>
+            <div style={s.billerGrid}>
+              {billers.map(b => (
+                <div key={b.id} style={s.billerCard}>
+                  <div style={s.billerName}>{b.name}</div>
+                  <div style={s.billerMeta}>NIT: {b.document_number}</div>
+                  <div style={s.billerMeta}>
+                    {b.invoice_count || 0} facturas — Total: {fmt(b.total_sum)}
+                  </div>
+                  <button style={s.billerEnter} onClick={() => handleEnterBiller(b.id, b.name)}>
+                    Ingresar
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
         <h1 style={s.title}>Panel de facturación</h1>
         <p style={s.subtitle}>{invoices.length} facturas encontradas</p>
 

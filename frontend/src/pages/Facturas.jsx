@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ImpersonateBanner from '../components/ImpersonateBanner';
 
 const s = {
   page: { minHeight: '100vh', background: '#f8fafc', color: '#111827', fontFamily: 'system-ui, sans-serif' },
@@ -40,8 +41,12 @@ export default function Facturas() {
   const [estatus, setEstatus] = useState('');
   const navigate = useNavigate();
 
+  function authToken() {
+    if (localStorage.getItem('impersonating')) return localStorage.getItem('impersonate_token');
+    return localStorage.getItem('token');
+  }
   function authFetch(url) {
-    const token = localStorage.getItem('token');
+    const token = authToken();
     return fetch(url, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
@@ -72,6 +77,7 @@ export default function Facturas() {
 
   return (
     <div style={s.page}>
+      <ImpersonateBanner />
       <div style={s.top}>
         <span style={s.logo}>Contaya</span>
         <a href="/dashboard" style={s.back}>← Dashboard</a>
