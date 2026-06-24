@@ -41,11 +41,16 @@ export default function Clients() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  function authHeaders() {
+    const token = localStorage.getItem('token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) return navigate('/login');
-    fetch('/api/clients')
-      .then(r => r.json())
+    fetch('/api/clients', { headers: authHeaders() })
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
       .then(setClients)
       .catch(() => navigate('/login'))
       .finally(() => setLoading(false));
@@ -62,7 +67,10 @@ export default function Clients() {
     <div style={s.page}>
       <div style={s.top}>
         <span style={s.logo}>Contaya</span>
-        <button style={s.logout} onClick={handleLogout}>Cerrar sesión</button>
+        <div>
+          <a href="/dashboard" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '0.9rem', marginRight: '1rem' }}>← Dashboard</a>
+          <button style={s.logout} onClick={handleLogout}>Cerrar sesión</button>
+        </div>
       </div>
       <div style={s.main}>
         <h1 style={s.title}>Clientes</h1>

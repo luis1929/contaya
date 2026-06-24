@@ -81,8 +81,8 @@ export default function Login() {
         {error && <p style={s.error}>{error}</p>}
         <form onSubmit={handleSubmit}>
           <div style={s.field}>
-            <label style={s.label}>Correo electrónico</label>
-            <input style={s.input} type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+            <label style={s.label}>Correo o NIT</label>
+            <input style={s.input} type="text" value={email} onChange={e => setEmail(e.target.value)} required />
           </div>
           <div style={s.field}>
             <label style={s.label}>Contraseña</label>

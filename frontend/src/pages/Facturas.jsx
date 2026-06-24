@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '../services/api';
+import { useNavigate } from 'react-router-dom';
 
 const s = {
   page: { minHeight: '100vh', background: '#0f0c29', color: '#fff', fontFamily: 'system-ui, sans-serif' },
@@ -64,6 +64,14 @@ export default function Facturas() {
   const [hasta, setHasta] = useState('');
   const [cliente, setCliente] = useState('');
   const [estatus, setEstatus] = useState('');
+  const navigate = useNavigate();
+
+  function authFetch(url) {
+    const token = localStorage.getItem('token');
+    return fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  }
 
   async function load() {
     setLoading(true);
@@ -74,7 +82,8 @@ export default function Facturas() {
       if (cliente) params.set('cliente', cliente);
       if (estatus) params.set('estatus', estatus);
       const q = params.toString() ? '?' + params.toString() : '';
-      const res = await fetch('/api/invoices' + q);
+      const res = await authFetch('/api/invoices' + q);
+      if (!res.ok) { navigate('/login'); return; }
       const data = await res.json();
       setInvoices(data);
     } catch (e) {

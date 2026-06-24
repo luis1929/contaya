@@ -147,12 +147,19 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
 
 app.get('/api/clients', authMiddleware, async (req, res) => {
   try {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
-    const { rows } = await pool.query(`
+    let sql = `
       SELECT c.*, COUNT(i.id)::int AS invoice_count, COALESCE(SUM(i.total), 0) AS total_sum
       FROM clients c LEFT JOIN invoices i ON i.client_id = c.id
-      GROUP BY c.id ORDER BY c.name
-    `);
+    `;
+    const params = [];
+    if (req.user.role === 'biller') {
+      params.push(req.user.biller_id);
+      sql += ` AND i.biller_id = $1::uuid`;
+    } else {
+      sql += ` WHERE 1=1`;
+    }
+    sql += ` GROUP BY c.id ORDER BY c.name`;
+    const { rows } = await pool.query(sql, params);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
