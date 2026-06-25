@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { api } from '../services/api';
 import { Link, useNavigate } from 'react-router-dom';
+import { useContext } from 'react';
+import { AuthContext } from '../contexts/AuthContext';
 
 const blue = '#062a51';
 const gold = '#FFD066';
@@ -113,55 +115,69 @@ function fmt(n) {
 }
 
 export default function Dashboard() {
-  const [userRole, setUserRole] = useState('admin');
-  const [userName, setUserName] = useState('');
-  const [impersonating, setImpersonating] = useState(false);
-  const [summary, setSummary] = useState(null);
-  const [company, setCompany] = useState(null);
+  const authContext = useContext(AuthContext);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const t = localStorage.getItem('token');
-    if (!t) return navigate('/login');
-    const u = JSON.parse(localStorage.getItem('user') || '{}');
-    setUserRole(u.role || 'admin');
-    setUserName(u.name || '');
-    setImpersonating(!!u.impersonating);
-    api.getInvoiceSummary().then(setSummary).catch(() => {});
-    api.getCompany().then(setCompany).catch(() => {});
-  }, []);
+    if (!authContext.isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    // Load company data for the authenticated user
+    api.getCompany()
+      .then(setCompany)
+      .catch(() => {});
+
+    // Load invoice summary
+    api.getInvoiceSummary()
+      .then(setSummary)
+      .catch(() => {});
+  }, [authContext.isAuthenticated, navigate]);
 
   function backToAdmin() {
     const adminToken = localStorage.getItem('admin_token');
     if (adminToken) {
       localStorage.setItem('token', adminToken);
       localStorage.removeItem('admin_token');
-      localStorage.setItem('user', JSON.stringify({ role: 'admin' }));
+      localStorage.setItem('user', JSON.stringify({ 
+        role: 'admin',
+        impersonating: false,
+        impersonatedBy: null
+      }));
+      
+      // Dispatch to auth context
+      authContext.logout();
+      authContext.login({ id: null, email: null, role: 'admin' }, adminToken);
     }
+    
     navigate('/admin');
   }
 
   return (
     <div style={s.page}>
-      {impersonating && (
+      {authContext.impersonating && (
         <div style={{ background: '#fef9c3', borderBottom: '1px solid #fde68a', padding: '0.5rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem', color: '#92400e' }}>
-          <span>Modo impersonación: estás viendo datos de <strong>{userName}</strong></span>
+          <span>Modo impersonación: estás viendo datos de <strong>{authContext.user?.name}</strong></span>
           <button onClick={backToAdmin} style={{ background: '#92400e', color: '#fff', border: 'none', padding: '0.3rem 1rem', borderRadius: '5px', cursor: 'pointer', fontSize: '0.8rem' }}>Volver al Admin</button>
         </div>
       )}
       <div style={s.top}>
         <span style={s.logo}>Contaya</span>
         <div>
-          <button style={s.logout} onClick={() => { localStorage.clear(); navigate('/'); }}>Cerrar sesión</button>
+          <button style={s.logout} onClick={() => { 
+            authContext.logout(); 
+            navigate('/'); 
+          }}>Cerrar sesión</button>
         </div>
       </div>
       <div style={s.main}>
         <div style={s.header}>
-          <h1 style={s.title}>Bienvenido{userName ? `, ${userName}` : ''}</h1>
+          <h1 style={s.title}>Bienvenido{authContext.user?.name ? `, ${authContext.user.name}` : ''}</h1>
           <p style={s.subtitle}>Selecciona un módulo para comenzar</p>
         </div>
 
-        {company?.name && (
+        {authContext.user?.role === 'biller' && (
           <div style={{
             background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px',
             padding: '1.25rem 1.75rem', marginBottom: '1.5rem',
@@ -169,33 +185,14 @@ export default function Dashboard() {
           }}>
             <div>
               <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '0.15rem' }}>FACTURADOR</div>
-              <div style={{ fontWeight: '700', fontSize: '1.1rem', color: '#222' }}>{company.name}</div>
+              <div style={{ fontWeight: '700', fontSize: '1.1rem', color: '#222' }}>{authContext.user.name}</div>
             </div>
-            {company.rnc && (
+            {authContext.user.document_number && (
               <div>
                 <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '0.15rem' }}>RNC</div>
-                <div style={{ fontWeight: '600', color: blue }}>{company.rnc}</div>
+                <div style={{ fontWeight: '600', color: blue }}>{authContext.user.document_number}</div>
               </div>
             )}
-            {company.address && (
-              <div>
-                <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '0.15rem' }}>DIRECCIÓN</div>
-                <div style={{ fontSize: '0.9rem' }}>{company.address}</div>
-              </div>
-            )}
-            {company.email && (
-              <div>
-                <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '0.15rem' }}>CORREO</div>
-                <div style={{ fontSize: '0.9rem' }}>{company.email}</div>
-              </div>
-            )}
-            {company.phone && (
-              <div>
-                <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '0.15rem' }}>TELÉFONO</div>
-                <div style={{ fontSize: '0.9rem' }}>{company.phone}</div>
-              </div>
-            )}
-            <Link to="/company" style={{ color: blue, fontSize: '0.8rem', marginLeft: 'auto', textDecoration: 'none' }}>Editar</Link>
           </div>
         )}
 
