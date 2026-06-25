@@ -54,6 +54,7 @@ function authMiddleware(req, res, next) {
   try {
     const token = header.split(' ')[1];
     req.user = jwt.verify(token, JWT_SECRET);
+    req.biller_id = req.user.role === 'biller' ? req.user.biller_id : null;
     next();
   } catch {
     res.status(401).json({ error: 'Invalid token' });
@@ -87,7 +88,7 @@ app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Faltan campos requeridos' });
 
-    // If identifier looks like an email, try admin login first
+    // 1) Try admin login by email
     if (email.includes('@')) {
       const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
       if (rows.length) {
@@ -100,18 +101,26 @@ app.post('/api/auth/login', async (req, res) => {
       }
     }
 
-    // Try biller login by document_number (NIT)
-    // Try exact match first, then if NIT has no DV suffix, match by prefix
-    let { rows: billers } = await pool.query('SELECT * FROM billers WHERE document_number = $1', [email]);
-    if (!billers.length && !email.includes('@')) {
-      // Try matching NIT with DV (e.g. "72005672" matches "72005672-4")
-      billers = (await pool.query('SELECT * FROM billers WHERE document_number LIKE $1', [email + '-%'])).rows;
+    // 2) Try biller login by email first, then by document_number (NIT)
+    let billerRows;
+    if (email.includes('@')) {
+      billerRows = (await pool.query('SELECT * FROM billers WHERE email = $1 AND is_active = true', [email])).rows;
+    } else {
+      billerRows = (await pool.query('SELECT * FROM billers WHERE document_number = $1 AND is_active = true', [email])).rows;
+      if (!billerRows.length) {
+        billerRows = (await pool.query('SELECT * FROM billers WHERE document_number LIKE $1 AND is_active = true', [email + '-%'])).rows;
+      }
     }
-    if (billers.length) {
-      const match = await bcrypt.compare(password, billers[0].password || '');
+
+    if (billerRows.length) {
+      const match = await bcrypt.compare(password, billerRows[0].password || '');
       if (match) {
-        const token = jwt.sign({ biller_id: billers[0].id, name: billers[0].name, document_number: billers[0].document_number, role: 'biller' }, JWT_SECRET, { expiresIn: '7d' });
-        return res.json({ user: { id: billers[0].id, name: billers[0].name, role: 'biller' }, token });
+        const token = jwt.sign(
+          { biller_id: billerRows[0].id, name: billerRows[0].name, document_number: billerRows[0].document_number, role: 'biller' },
+          JWT_SECRET,
+          { expiresIn: '7d' }
+        );
+        return res.json({ user: { id: billerRows[0].id, name: billerRows[0].name, role: 'biller' }, token });
       }
     }
 
@@ -150,7 +159,15 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
 
 app.get('/api/clients', authMiddleware, async (req, res) => {
   try {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
+    if (req.user.role === 'biller') {
+      const { rows } = await pool.query(`
+        SELECT c.*, COUNT(i.id)::int AS invoice_count, COALESCE(SUM(i.total), 0) AS total_sum
+        FROM clients c LEFT JOIN invoices i ON i.client_id = c.id
+        WHERE c.biller_id = $1::uuid
+        GROUP BY c.id ORDER BY c.name
+      `, [req.biller_id]);
+      return res.json(rows);
+    }
     const { rows } = await pool.query(`
       SELECT c.*, COUNT(i.id)::int AS invoice_count, COALESCE(SUM(i.total), 0) AS total_sum
       FROM clients c LEFT JOIN invoices i ON i.client_id = c.id
@@ -167,6 +184,7 @@ app.get('/api/invoices', authMiddleware, async (req, res) => {
     const { desde, hasta, cliente, estatus, facturador } = req.query;
     let sql = 'SELECT invoices.* FROM invoices WHERE 1=1';
     const params = [];
+    if (req.biller_id) { params.push(req.biller_id); sql += ` AND invoices.biller_id = $${params.length}::uuid`; }
     if (desde) { params.push(desde); sql += ` AND invoices.created_at >= $${params.length}`; }
     if (hasta) { params.push(hasta); sql += ` AND invoices.created_at <= $${params.length}`; }
     if (cliente) { params.push(`%${cliente}%`); sql += ` AND (client_name ILIKE $${params.length} OR client ILIKE $${params.length})`; }
@@ -195,6 +213,7 @@ app.get('/api/invoices/summary', authMiddleware, async (req, res) => {
       FROM invoices WHERE 1=1
     `;
     const params = [];
+    if (req.biller_id) { params.push(req.biller_id); sql += ` AND biller_id = $${params.length}::uuid`; }
     if (desde) { params.push(desde); sql += ` AND created_at >= $${params.length}`; }
     if (hasta) { params.push(hasta); sql += ` AND created_at <= $${params.length}`; }
     const { rows } = await pool.query(sql, params);
@@ -361,12 +380,12 @@ app.put('/api/company', authMiddleware, async (req, res) => {
   }
 });
 
-app.post('/api/documents/upload', upload.single('file'), async (req, res) => {
+app.post('/api/documents/upload', authMiddleware, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const { rows } = await pool.query(
-      'INSERT INTO documents (original_name, filename, size, mimetype, type) VALUES ($1,$2,$3,$4,$5) RETURNING *',
-      [req.file.originalname, req.file.filename, req.file.size, req.file.mimetype, detectType(req.file.originalname)]
+      'INSERT INTO documents (original_name, filename, size, mimetype, type, biller_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+      [req.file.originalname, req.file.filename, req.file.size, req.file.mimetype, detectType(req.file.originalname), req.biller_id]
     );
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -374,18 +393,25 @@ app.post('/api/documents/upload', upload.single('file'), async (req, res) => {
   }
 });
 
-app.get('/api/documents', async (req, res) => {
+app.get('/api/documents', authMiddleware, async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM documents ORDER BY uploaded_at DESC');
+    let sql = 'SELECT * FROM documents WHERE 1=1';
+    const params = [];
+    if (req.biller_id) { params.push(req.biller_id); sql += ` AND biller_id = $${params.length}::uuid`; }
+    sql += ' ORDER BY uploaded_at DESC';
+    const { rows } = await pool.query(sql, params);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.get('/api/documents/:id', async (req, res) => {
+app.get('/api/documents/:id', authMiddleware, async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM documents WHERE id = $1', [req.params.id]);
+    let sql = 'SELECT * FROM documents WHERE id = $1';
+    const params = [req.params.id];
+    if (req.biller_id) { params.push(req.biller_id); sql += ` AND biller_id = $${params.length}::uuid`; }
+    const { rows } = await pool.query(sql, params);
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(rows[0]);
   } catch (err) {
@@ -393,9 +419,12 @@ app.get('/api/documents/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/documents/:id', async (req, res) => {
+app.delete('/api/documents/:id', authMiddleware, async (req, res) => {
   try {
-    const { rowCount } = await pool.query('DELETE FROM documents WHERE id = $1', [req.params.id]);
+    let sql = 'DELETE FROM documents WHERE id = $1';
+    const params = [req.params.id];
+    if (req.biller_id) { params.push(req.biller_id); sql += ` AND biller_id = $${params.length}::uuid`; }
+    const { rowCount } = await pool.query(sql, params);
     if (!rowCount) return res.status(404).json({ error: 'Not found' });
     res.json({ message: 'Deleted' });
   } catch (err) {
