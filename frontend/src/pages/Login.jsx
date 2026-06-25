@@ -81,7 +81,7 @@ export default function Login() {
         <form onSubmit={handleSubmit}>
           <div style={s.field}>
             <label style={s.label}>Correo electrónico</label>
-            <input style={s.input} type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+            <input style={s.input} type="text" value={email} onChange={e => setEmail(e.target.value)} required placeholder="Correo o NIT" />
           </div>
           <div style={s.field}>
             <label style={s.label}>Contraseña</label>

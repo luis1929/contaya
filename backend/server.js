@@ -94,9 +94,11 @@ app.post('/api/auth/login', async (req, res) => {
     if (!email || !password) return res.status(400).json({ error: 'Faltan campos requeridos' });
 
     // 1) Try admin login by email
+    let userFoundInUsers = false;
     if (email.includes('@')) {
       const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
       if (rows.length) {
+        userFoundInUsers = true;
         const match = await bcrypt.compare(password, rows[0].password);
         if (match) {
           const token = jwt.sign({ id: rows[0].id, email: rows[0].email, role: 'admin' }, JWT_SECRET, { expiresIn: '7d' });
@@ -106,11 +108,12 @@ app.post('/api/auth/login', async (req, res) => {
       }
     }
 
-    // 2) Try biller login by email first, then by document_number (NIT)
+    // 2) Try biller login by email, or by document_number (NIT)
+    //    If email exists in users table, don't fall through to biller check
     let billerRows;
-    if (email.includes('@')) {
+    if (email.includes('@') && !userFoundInUsers) {
       billerRows = (await pool.query('SELECT * FROM billers WHERE email = $1 AND is_active = true', [email])).rows;
-    } else {
+    } else if (!email.includes('@')) {
       billerRows = (await pool.query('SELECT * FROM billers WHERE document_number = $1 AND is_active = true', [email])).rows;
       if (!billerRows.length) {
         billerRows = (await pool.query('SELECT * FROM billers WHERE document_number LIKE $1 AND is_active = true', [email + '-%'])).rows;
