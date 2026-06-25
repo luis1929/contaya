@@ -66,9 +66,13 @@ export default function Dashboard() {
   }, []);
 
   function backToAdmin() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/login');
+    const adminToken = localStorage.getItem('admin_token');
+    if (adminToken) {
+      localStorage.setItem('token', adminToken);
+      localStorage.removeItem('admin_token');
+      localStorage.setItem('user', JSON.stringify({ role: 'admin' }));
+    }
+    navigate('/admin');
   }
 
   return (

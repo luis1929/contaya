@@ -34,10 +34,11 @@ export default function AdminDashboard() {
 
   async function handleImpersonate(biller) {
     try {
+      const adminToken = localStorage.getItem('token');
       const data = await api.impersonate(biller.id);
+      localStorage.setItem('admin_token', adminToken);
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify({ ...data.biller, role: 'biller', impersonating: true }));
-      localStorage.setItem('admin_token', localStorage.getItem('token'));
       navigate('/dashboard');
     } catch { alert('Error al impersonar'); }
   }
