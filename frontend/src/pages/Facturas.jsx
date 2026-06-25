@@ -159,7 +159,7 @@ export default function Facturas() {
       <div style={s.top}>
         <a href="/dashboard" style={s.back}>← Dashboard</a>
         <span style={s.logo}>Contaya</span>
-        <button style={s.logout} onClick={() => { localStorage.clear(); window.location.href = '/'; }}>Cerrar sesión</button>
+        <button style={s.logout} onClick={() => { localStorage.clear(); window.dispatchEvent(new Event('auth-change')); window.location.href = '/'; }}>Cerrar sesión</button>
       </div>
       <div style={s.main}>
         <h1 style={s.title}>Facturas</h1>

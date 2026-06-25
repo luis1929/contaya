@@ -62,37 +62,56 @@ function authReducer(state, action) {
 // Create Auth Context
 const AuthContext = createContext();
 
-function AuthProvider({ children }) {
-  const [state, dispatch] = useReducer(authReducer, initialState);
+function getInitialState() {
+  try {
+    const storedToken = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
+    if (storedToken && storedUser) {
+      const user = JSON.parse(storedUser);
+      return {
+        user,
+        token: storedToken,
+        isAuthenticated: true,
+        impersonating: user.impersonating || false,
+        impersonatedBy: user.impersonatedBy || user.impersonated_by || null
+      };
+    }
+  } catch (e) { /* ignore */ }
+  return initialState;
+}
 
-  // Load state from localStorage on mount
+function AuthProvider({ children }) {
+  const [state, dispatch] = useReducer(authReducer, null, getInitialState);
+
+  // Sync from localStorage on storage events (other tabs) and custom auth-change events
   useEffect(() => {
-    const loadPersistedState = () => {
+    const syncFromStorage = () => {
       try {
         const storedToken = localStorage.getItem('token');
         const storedUser = localStorage.getItem('user');
-        const storedImpersonating = localStorage.getItem('impersonating');
-        const storedImpersonatedBy = localStorage.getItem('impersonated_by');
-        
         if (storedToken && storedUser) {
           const user = JSON.parse(storedUser);
-          
           dispatch({
             type: 'LOAD_STATE',
             payload: {
               user,
               token: storedToken,
-              impersonating: storedImpersonating === 'true',
-              impersonatedBy: storedImpersonatedBy || null
+              impersonating: user.impersonating || false,
+              impersonatedBy: user.impersonatedBy || user.impersonated_by || null
             }
           });
+        } else {
+          dispatch({ type: 'LOGOUT' });
         }
-      } catch (error) {
-        console.error('Error loading persisted auth state:', error);
-      }
+      } catch (e) { /* ignore */ }
     };
 
-    loadPersistedState();
+    window.addEventListener('storage', syncFromStorage);
+    window.addEventListener('auth-change', syncFromStorage);
+    return () => {
+      window.removeEventListener('storage', syncFromStorage);
+      window.removeEventListener('auth-change', syncFromStorage);
+    };
   }, []);
 
   // Save to localStorage whenever state changes

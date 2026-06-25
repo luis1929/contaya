@@ -235,6 +235,7 @@ export default function Upload() {
 
   const handleLogout = () => {
     localStorage.clear();
+    window.dispatchEvent(new Event('auth-change'));
     navigate('/');
   };
 

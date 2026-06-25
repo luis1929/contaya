@@ -77,6 +77,7 @@ export default function AdminDashboard() {
       localStorage.setItem('admin_token', adminToken);
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify({ ...data.biller, role: 'biller', impersonating: true }));
+      window.dispatchEvent(new Event('auth-change'));
       navigate('/dashboard');
     } catch { alert('Error al impersonar'); }
   }
@@ -104,7 +105,7 @@ export default function AdminDashboard() {
     <div style={s.page}>
       <div style={s.top}>
         <span style={{ fontSize: '1.1rem', fontWeight: '700' }}>Contaya — Panel Admin</span>
-        <button style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', padding: '0.4rem 1rem', borderRadius: '5px', cursor: 'pointer' }} onClick={() => { localStorage.clear(); navigate('/'); }}>Cerrar sesión</button>
+        <button style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', padding: '0.4rem 1rem', borderRadius: '5px', cursor: 'pointer' }} onClick={() => { localStorage.clear(); window.dispatchEvent(new Event('auth-change')); navigate('/'); }}>Cerrar sesión</button>
       </div>
       <div style={s.main}>
         <h1 style={s.title}>Administración</h1>

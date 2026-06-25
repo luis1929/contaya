@@ -63,7 +63,7 @@ export default function Declarations() {
     }).finally(() => setLoading(false));
   }, [navigate]);
 
-  const handleLogout = () => { localStorage.clear(); navigate('/'); };
+  const handleLogout = () => { localStorage.clear(); window.dispatchEvent(new Event('auth-change')); navigate('/'); };
 
   if (loading) {
     return (

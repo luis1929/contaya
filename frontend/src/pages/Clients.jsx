@@ -62,6 +62,7 @@ export default function Clients() {
 
   function handleLogout() {
     localStorage.clear();
+    window.dispatchEvent(new Event('auth-change'));
     navigate('/');
   }
 

@@ -146,10 +146,7 @@ export default function Dashboard() {
         impersonating: false,
         impersonatedBy: null
       }));
-      
-      // Dispatch to auth context
-      authContext.logout();
-      authContext.login({ id: null, email: null, role: 'admin' }, adminToken);
+      window.dispatchEvent(new Event('auth-change'));
     }
     
     navigate('/admin');

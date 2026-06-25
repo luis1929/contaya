@@ -120,7 +120,7 @@ export default function CompanyPage() {
     if (!token) return navigate('/login');
     api.getCompany()
       .then(data => { if (data) setForm(data); })
-      .catch(() => { localStorage.clear(); navigate('/login'); })
+      .catch(() => { localStorage.clear(); window.dispatchEvent(new Event('auth-change')); navigate('/login'); })
       .finally(() => setLoading(false));
   }, [navigate]);
 
@@ -141,6 +141,7 @@ export default function CompanyPage() {
 
   function handleLogout() {
     localStorage.clear();
+    window.dispatchEvent(new Event('auth-change'));
     navigate('/');
   }
 

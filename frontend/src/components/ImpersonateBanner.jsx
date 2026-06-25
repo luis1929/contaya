@@ -46,6 +46,7 @@ export default function ImpersonateBanner() {
       localStorage.setItem('token', adminToken);
       localStorage.removeItem('admin_token');
       localStorage.setItem('user', JSON.stringify({ role: 'admin' }));
+      window.dispatchEvent(new Event('auth-change'));
     }
     navigate('/admin');
   }
