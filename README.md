@@ -13,6 +13,16 @@ Plataforma contable multi-tenant para gestión de facturación electrónica, cli
 | **Uploads** | Multer 2 (PDF, JPG, PNG, CSV, XLSX) |
 | **Infra** | Oracle Cloud VM (Ubuntu), nginx, systemd, Cloudflare Tunnel |
 
+### Características Frontend Actualizadas
+
+| Característica | Estado | Descripción |
+|---------|--------|-------------|
+| **Paleta de Colores Facturatec** | ✅ Implementado | Colores institucionales unificados: azul oscuro (#062A51), azul de acento (#2563eb), fondo gris claro (#f4f6f9) |
+| **Enlace Dashboard en Navegación** | ✅ Implementado | Acceso rápido al panel principal desde cualquier página |
+| **Efectos Hover y Transiciones** | ✅ Implementado | Animaciones suaves y consistentes en todos los elementos interactivos |
+| **Estilo Consistente Multi-Página** | ✅ Implementado | Todos los módulos (Dashboard, Facturas, Clientes, Admin, etc.) usan la misma identidad visual |
+| **Mejoras de Accesibilidad** | ✅ Implementado | Mejores contrastes y navegación lógica entre componentes |
+
 ## Arquitectura
 
 ```
