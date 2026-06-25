@@ -7,26 +7,113 @@ const primary = '#2563eb';
 const primaryLight = '#eff6ff';
 
 const s = {
-  page: { minHeight: '100vh', background: '#f4f7fc', color: '#1e293b', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif' },
-  top: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 2rem', background: '#fff', borderBottom: '1px solid #e2e8f0' },
-  logo: { fontSize: '1.1rem', fontWeight: '700', color: primary, textDecoration: 'none' },
-  back: { color: primary, textDecoration: 'none', fontSize: '0.85rem', fontWeight: '500' },
-  logout: { background: 'none', border: '1px solid #e2e8f0', color: '#64748b', padding: '0.4rem 1rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' },
+  page: { minHeight: '100vh', background: 'var(--background)', color: 'var(--text-primary)', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif' },
+  top: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 2rem', background: 'var(--surface)', borderBottom: '1px solid var(--border)' },
+  logo: { fontSize: '1.1rem', fontWeight: '700', color: 'var(--primary)' },
+  back: { color: 'var(--primary)', textDecoration: 'none', fontSize: '0.85rem', fontWeight: '500', transition: 'var(--transition)', ':hover': { color: 'var(--primary-dark)' } },
+  logout: { 
+    background: 'none', 
+    border: '1px solid var(--border)', 
+    color: 'var(--text-secondary)', 
+    padding: '0.4rem 1rem', 
+    borderRadius: '6px', 
+    cursor: 'pointer', 
+    fontSize: '0.8rem',
+    transition: 'var(--transition)',
+    ':hover': {
+      background: 'var(--background)',
+      color: 'var(--text-primary)'
+    }
+  },
   main: { maxWidth: '1200px', margin: '0 auto', padding: '2rem' },
-  title: { fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.5rem', color: '#0f172a' },
-  filters: { display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '2rem', alignItems: 'end', background: '#fff', padding: '1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0' },
+  title: { fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.5rem', color: 'var(--text-primary)' },
+  filters: { 
+    display: 'flex', 
+    gap: '0.75rem', 
+    flexWrap: 'wrap', 
+    marginBottom: '2rem', 
+    alignItems: 'end', 
+    background: 'var(--surface)', 
+    padding: '1.25rem', 
+    borderRadius: '12px', 
+    border: '1px solid var(--border)',
+    boxShadow: 'var(--shadow-sm)'
+  },
   field: { display: 'flex', flexDirection: 'column', gap: '0.25rem' },
-  label: { color: '#64748b', fontSize: '0.75rem', fontWeight: '600' },
-  input: { padding: '0.5rem 0.75rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: '#1e293b', fontSize: '0.85rem', outline: 'none' },
-  select: { padding: '0.5rem 0.75rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: '#1e293b', fontSize: '0.85rem', outline: 'none', cursor: 'pointer' },
-  btn: { padding: '0.5rem 1.25rem', background: primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer', height: '36px', whiteSpace: 'nowrap' },
-  tableContainer: { overflowX: 'auto', background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0' },
+  label: { color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: '600' },
+  input: { 
+    padding: '0.5rem 0.75rem', 
+    background: 'var(--background)', 
+    border: '1px solid var(--border)', 
+    borderRadius: '8px', 
+    color: 'var(--text-primary)', 
+    fontSize: '0.85rem', 
+    outline: 'none',
+    transition: 'var(--transition)',
+    ':focus': { borderColor: 'var(--primary)', boxShadow: '0 0 0 2px rgba(37, 99, 235, 0.1)' }
+  },
+  select: { 
+    padding: '0.5rem 0.75rem', 
+    background: 'var(--background)', 
+    border: '1px solid var(--border)', 
+    borderRadius: '8px', 
+    color: 'var(--text-primary)', 
+    fontSize: '0.85rem', 
+    outline: 'none', 
+    cursor: 'pointer',
+    transition: 'var(--transition)'
+  },
+  btn: { 
+    padding: '0.5rem 1.25rem', 
+    background: 'var(--primary)', 
+    color: 'var(--white)', 
+    border: 'none', 
+    borderRadius: '8px', 
+    fontSize: '0.85rem', 
+    fontWeight: '600', 
+    cursor: 'pointer', 
+    height: '36px', 
+    whiteSpace: 'nowrap',
+    transition: 'var(--transition)',
+    ':hover': {
+      background: 'var(--primary-dark)',
+      boxShadow: 'var(--shadow-sm)'
+    },
+    ':active': {
+      transform: 'translateY(1px)'
+    }
+  },
+  tableContainer: { 
+    overflowX: 'auto', 
+    background: 'var(--surface)', 
+    borderRadius: '12px', 
+    border: '1px solid var(--border)',
+    boxShadow: 'var(--shadow-sm)'
+  },
   table: { width: '100%', borderCollapse: 'collapse' },
-  th: { padding: '0.75rem 1rem', textAlign: 'left', color: '#64748b', fontSize: '0.75rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '2px solid #e2e8f0', background: '#f8fafc' },
-  td: { padding: '0.75rem 1rem', fontSize: '0.85rem', borderBottom: '1px solid #f1f5f9' },
-  status: (v) => ({ display: 'inline-block', padding: '0.2rem 0.6rem', borderRadius: '999px', fontSize: '0.7rem', fontWeight: '600', background: v === 'Firmado' ? '#dcfce7' : '#fef9c3', color: v === 'Firmado' ? '#166534' : '#854d0e' }),
-  empty: { textAlign: 'center', color: '#94a3b8', padding: '4rem 2rem', fontSize: '0.9rem' },
-  loading: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', color: '#94a3b8', fontSize: '1rem' },
+  th: { 
+    padding: '0.75rem 1rem', 
+    textAlign: 'left', 
+    color: 'var(--text-secondary)', 
+    fontSize: '0.75rem', 
+    fontWeight: '600', 
+    textTransform: 'uppercase', 
+    letterSpacing: '0.05em', 
+    borderBottom: '2px solid var(--border)',
+    background: 'var(--background-dark)'
+  },
+  td: { padding: '0.75rem 1rem', fontSize: '0.85rem', borderBottom: '1px solid var(--border)' },
+  status: (v) => ({ 
+    display: 'inline-block', 
+    padding: '0.2rem 0.6rem', 
+    borderRadius: '999px', 
+    fontSize: '0.7rem', 
+    fontWeight: '600', 
+    background: v === 'Firmado' ? 'var(--success)' : v === 'Enviado' ? 'var(--primary-light)' : 'var(--warning)',
+    color: v === 'Firmado' ? '#166534' : v === 'Enviado' ? 'var(--primary-dark)' : '#854d0e'
+  }),
+  empty: { textAlign: 'center', color: 'var(--text-muted)', padding: '4rem 2rem', fontSize: '0.9rem' },
+  loading: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', color: 'var(--text-muted)', fontSize: '1rem' },
 };
 
 function fmt(n) {

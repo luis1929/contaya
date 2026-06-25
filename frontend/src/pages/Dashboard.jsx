@@ -16,29 +16,95 @@ const features = [
 ];
 
 const s = {
-  page: { minHeight: '100vh', background: bg, color: '#333', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif' },
-  top: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 2rem', background: blue, color: '#fff' },
+  page: { 
+    minHeight: '100vh', 
+    background: 'var(--background)', 
+    color: 'var(--text-primary)', 
+    fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif'
+  },
+  top: { 
+    display: 'flex', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    padding: '0.75rem 2rem', 
+    background: 'var(--primary-dark)', 
+    color: 'var(--white)',
+    boxShadow: 'var(--shadow-sm)'
+  },
   logo: { fontSize: '1.1rem', fontWeight: '700', color: '#fff' },
-  logout: { background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', padding: '0.4rem 1rem', borderRadius: '5px', cursor: 'pointer', fontSize: '0.85rem' },
+  logout: { 
+    background: 'rgba(255,255,255,0.15)', 
+    border: 'none', 
+    color: '#fff', 
+    padding: '0.4rem 1rem', 
+    borderRadius: '5px', 
+    cursor: 'pointer', 
+    fontSize: '0.85rem',
+    transition: 'var(--transition)',
+    ':hover': { background: 'rgba(255,255,255,0.25)' }
+  },
   main: { maxWidth: '1200px', margin: '0 auto', padding: '2rem' },
   header: { marginBottom: '2.5rem' },
-  title: { fontSize: '1.5rem', fontWeight: '700', color: '#222', marginBottom: '0.25rem' },
-  subtitle: { color: '#888', fontSize: '0.9rem' },
+  title: { fontSize: '1.5rem', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '0.25rem' },
+  subtitle: { color: 'var(--text-secondary)', fontSize: '0.9rem' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' },
-  card: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '1.75rem', cursor: 'pointer', textDecoration: 'none', color: 'inherit', display: 'block', transition: 'box-shadow 0.2s, transform 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' },
-  iconBox: { width: '48px', height: '48px', background: '#f0f4ff', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', marginBottom: '1rem' },
-  cardTitle: { fontSize: '1.1rem', fontWeight: '600', color: '#222', marginBottom: '0.5rem' },
-  cardDesc: { color: '#666', fontSize: '0.85rem', lineHeight: '1.6' },
-  reportesSection: { marginTop: '3rem', borderTop: '1px solid #e5e7eb', paddingTop: '2rem' },
-  reportesHeader: { fontSize: '1.2rem', fontWeight: '700', color: '#222', marginBottom: '1.5rem' },
-  cardSm: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1.25rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' },
-  cardLabel: { color: '#888', fontSize: '0.8rem', marginBottom: '0.3rem' },
-  cardValue: { fontSize: '1.4rem', fontWeight: '700', color: '#222' },
-  cardAccent: { color: blue },
-  table: { width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' },
-  th: { padding: '0.7rem 1rem', textAlign: 'left', color: '#666', fontSize: '0.75rem', fontWeight: '600', borderBottom: '1px solid #eee', textTransform: 'uppercase', letterSpacing: '0.05em', background: bg },
-  td: { padding: '0.7rem 1rem', fontSize: '0.85rem', borderBottom: '1px solid #f0f0f0' },
-  loading: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', color: '#888', fontSize: '1rem' },
+  card: { 
+    background: 'var(--surface)', 
+    border: '1px solid var(--border)', 
+    borderRadius: '12px', 
+    padding: '1.75rem', 
+    cursor: 'pointer', 
+    textDecoration: 'none', 
+    color: 'inherit', 
+    display: 'block', 
+    transition: 'box-shadow 0.2s, transform 0.2s, border-color 0.2s',
+    boxShadow: 'var(--shadow-sm)',
+    ':hover': {
+      boxShadow: 'var(--shadow-md)',
+      transform: 'translateY(-2px)',
+      borderColor: 'var(--primary-light)'
+    }
+  },
+  iconBox: { 
+    width: '48px', 
+    height: '48px', 
+    background: 'var(--primary-light)', 
+    borderRadius: '12px', 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    fontSize: '1.5rem', 
+    marginBottom: '1rem',
+    color: 'var(--primary-dark)'
+  },
+  cardTitle: { fontSize: '1.1rem', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '0.5rem' },
+  cardDesc: { color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: '1.6' },
+  reportesSection: { marginTop: '3rem', borderTop: '1px solid var(--border)', paddingTop: '2rem' },
+  reportesHeader: { fontSize: '1.2rem', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '1.5rem' },
+  cardSm: { 
+    background: 'var(--surface)', 
+    border: '1px solid var(--border)', 
+    borderRadius: '8px', 
+    padding: '1.25rem', 
+    boxShadow: 'var(--shadow-sm)'
+  },
+  cardLabel: { color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.3rem' },
+  cardValue: { fontSize: '1.4rem', fontWeight: '700', color: 'var(--text-primary)' },
+  cardAccent: { color: 'var(--primary-dark)' },
+  table: { width: '100%', borderCollapse: 'collapse', background: 'var(--surface)', borderRadius: '8px', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' },
+  th: { 
+    padding: '0.7rem 1rem', 
+    textAlign: 'left', 
+    color: 'var(--text-secondary)', 
+    fontSize: '0.75rem', 
+    fontWeight: '600', 
+    borderBottom: '1px solid var(--border)', 
+    textTransform: 'uppercase', 
+    letterSpacing: '0.05em',
+    background: 'var(--background-dark)'
+  },
+  td: { padding: '0.7rem 1rem', fontSize: '0.85rem', borderBottom: '1px solid var(--border)' },
+  loading: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', color: 'var(--text-muted)', fontSize: '1rem' },
 };
 
 function fmt(n) {

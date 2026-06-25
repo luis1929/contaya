@@ -3,22 +3,60 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 
 const s = {
-  page: { minHeight: '100vh', background: '#f4f7fc', color: '#1e293b', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif' },
-  top: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 2rem', background: '#062a51', color: '#fff' },
+  page: { 
+    minHeight: '100vh', 
+    background: 'var(--background)', 
+    color: 'var(--text-primary)', 
+    fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif'
+  },
+  top: { 
+    display: 'flex', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    padding: '0.75rem 2rem', 
+    background: 'var(--primary-dark)', 
+    color: 'var(--white)',
+    boxShadow: 'var(--shadow-sm)'
+  },
   main: { maxWidth: '1200px', margin: '0 auto', padding: '2rem' },
-  title: { fontSize: '1.5rem', fontWeight: '700', color: '#0f172a', marginBottom: '0.25rem' },
-  subtitle: { color: '#64748b', fontSize: '0.9rem', marginBottom: '2rem' },
+  title: { fontSize: '1.5rem', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '0.25rem' },
+  subtitle: { color: 'rgba(255,255,255,0.9)', fontSize: '0.9rem', marginBottom: '2rem' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1rem' },
-  card: { background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.25rem' },
-  name: { fontSize: '1.1rem', fontWeight: '700', color: '#0f172a', marginBottom: '0.5rem' },
-  meta: { color: '#64748b', fontSize: '0.8rem', marginBottom: '0.25rem' },
-  badge: (v) => ({ display: 'inline-block', padding: '0.2rem 0.5rem', borderRadius: '999px', fontSize: '0.7rem', fontWeight: '600', background: v ? '#dcfce7' : '#fef9c3', color: v ? '#166534' : '#854d0e' }),
+  card: { 
+    background: 'var(--surface)', 
+    border: '1px solid var(--border)', 
+    borderRadius: '12px', 
+    padding: '1.25rem',
+    transition: 'var(--transition)',
+    ':hover': { boxShadow: 'var(--shadow-md)' }
+  },
+  name: { fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '0.5rem' },
+  meta: { color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.25rem' },
+  badge: (v) => ({ display: 'inline-block', padding: '0.2rem 0.5rem', borderRadius: '999px', fontSize: '0.7rem', fontWeight: '600', background: v ? 'var(--success)' : 'var(--warning)', color: v ? '#166534' : '#854d0e' }),
   actions: { display: 'flex', gap: '0.5rem', marginTop: '0.75rem' },
-  btn: (c = '#2563eb') => ({ padding: '0.4rem 0.8rem', background: c, color: '#fff', border: 'none', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', cursor: 'pointer' }),
+  btn: (c = 'var(--primary)') => ({ 
+    padding: '0.4rem 0.8rem', 
+    background: c, 
+    color: 'var(--white)', 
+    border: 'none', 
+    borderRadius: '6px', 
+    fontSize: '0.75rem', 
+    fontWeight: '600', 
+    cursor: 'pointer',
+    transition: 'var(--transition)'
+  }),
   stats: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginBottom: '2rem' },
-  statCard: { background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '1rem', textAlign: 'center' },
-  statValue: { fontSize: '1.5rem', fontWeight: '700', color: '#062a51' },
-  statLabel: { fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' },
+  statCard: { 
+    background: 'var(--surface)', 
+    border: '1px solid var(--border)', 
+    borderRadius: '10px', 
+    padding: '1rem', 
+    textAlign: 'center',
+    transition: 'var(--transition)',
+    ':hover': { boxShadow: 'var(--shadow-sm)' }
+  },
+  statValue: { fontSize: '1.5rem', fontWeight: '700', color: 'var(--primary-dark)' },
+  statLabel: { fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' },
 };
 
 export default function AdminDashboard() {

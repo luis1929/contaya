@@ -5,47 +5,106 @@ import { useNavigate } from 'react-router-dom';
 const s = {
   page: {
     minHeight: '100vh',
-    background: '#f8f9fc',
-    color: '#062A51',
+    background: 'var(--background)',
+    color: 'var(--primary-dark)',
     fontFamily: 'Roboto, system-ui, sans-serif',
   },
   top: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '1rem 2rem', background: '#fff',
-    borderBottom: '1px solid #e8ecf0',
+    padding: '1rem 2rem', background: 'var(--surface)',
+    borderBottom: '1px solid var(--border)',
   },
-  logo: { fontSize: '1.25rem', fontWeight: '700', color: '#BE3B5E', textDecoration: 'none' },
-  topLink: { color: '#4a5a72', textDecoration: 'none', fontSize: '0.85rem', fontWeight: '500', marginRight: '1.25rem' },
+  logo: { 
+    fontSize: '1.25rem', 
+    fontWeight: '700', 
+    color: 'var(--primary)', 
+    textDecoration: 'none',
+    transition: 'var(--transition)',
+    ':hover': { color: 'var(--primary-dark)' }
+  },
+  topLink: { 
+    color: 'var(--text-secondary)', 
+    textDecoration: 'none', 
+    fontSize: '0.85rem', 
+    fontWeight: '500', 
+    marginRight: '1.25rem',
+    transition: 'var(--transition)',
+    ':hover': { 
+      color: 'var(--primary-dark)'
+    }
+  },
   logout: {
-    background: 'none', border: '1px solid #BE3B5E',
-    color: '#BE3B5E', padding: '0.4rem 1rem', borderRadius: '15px',
-    cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600',
+    background: 'none', 
+    border: '1px solid var(--primary-dark)',
+    color: 'var(--primary-dark)', 
+    padding: '0.4rem 1rem', 
+    borderRadius: '15px',
+    cursor: 'pointer', 
+    fontSize: '0.8rem', 
+    fontWeight: '600',
+    transition: 'var(--transition)',
+    ':hover': {
+      background: 'var(--primary-dark)',
+      color: 'var(--white)'
+    }
   },
   main: { maxWidth: '700px', margin: '0 auto', padding: '2rem' },
-  title: { fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.25rem' },
-  subtitle: { color: '#7a8a9f', fontSize: '0.9rem', marginBottom: '2rem' },
+  title: { fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.25rem', color: 'var(--primary-dark)' },
+  subtitle: { color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '2rem' },
   card: {
-    background: '#fff', border: '1px solid #e8ecf0',
-    borderRadius: '16px', padding: '2rem',
+    background: 'var(--surface)', 
+    border: '1px solid var(--border)',
+    borderRadius: '16px', 
+    padding: '2rem',
+    transition: 'var(--transition)',
+    ':hover': { boxShadow: 'var(--shadow-md)' }
   },
   field: { marginBottom: '1.25rem' },
-  label: { display: 'block', color: '#062A51', fontSize: '0.875rem', fontWeight: '600', marginBottom: '0.375rem' },
+  label: { 
+    display: 'block', 
+    color: 'var(--primary-dark)', 
+    fontSize: '0.875rem', 
+    fontWeight: '600', 
+    marginBottom: '0.375rem'
+  },
   input: {
-    width: '100%', padding: '0.75rem 1rem',
-    background: '#fff', border: '1px solid #d0d5dd',
-    borderRadius: '10px', color: '#062A51',
-    fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box',
+    width: '100%', 
+    padding: '0.75rem 1rem',
+    background: 'var(--surface)', 
+    border: '1px solid var(--border)',
+    borderRadius: '10px', 
+    color: 'var(--primary-dark)',
+    fontSize: '0.95rem', 
+    outline: 'none', 
+    boxSizing: 'border-box',
+    transition: 'var(--transition)',
+    ':focus': {
+      borderColor: 'var(--primary)',
+      boxShadow: '0 0 0 2px rgba(37, 99, 235, 0.1)'
+    }
   },
   row: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' },
   btn: {
-    padding: '0.75rem 2rem', background: '#BE3B5E', color: '#fff',
-    border: 'none', borderRadius: '12px', fontSize: '1rem', fontWeight: '700',
-    cursor: 'pointer', marginTop: '0.5rem',
+    padding: '0.75rem 2rem', 
+    background: 'var(--primary-dark)', 
+    color: 'var(--white)',
+    border: 'none', 
+    borderRadius: '12px', 
+    fontSize: '1rem', 
+    fontWeight: '700',
+    cursor: 'pointer', 
+    marginTop: '0.5rem',
+    transition: 'var(--transition)',
+    ':hover': {
+      background: 'var(--primary)',
+      boxShadow: 'var(--shadow-sm)'
+    },
+    ':active': { transform: 'translateY(1px)' }
   },
   success: { color: '#0a8f4c', fontSize: '0.875rem', marginTop: '0.75rem', textAlign: 'center' },
   loading: {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    minHeight: '100vh', color: '#7a8a9f', fontSize: '1rem',
+    minHeight: '100vh', color: 'var(--text-muted)', fontSize: '1rem',
   },
 };
 

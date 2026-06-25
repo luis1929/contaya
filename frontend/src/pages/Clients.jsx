@@ -5,20 +5,40 @@ import { api } from '../services/api';
 const primary = '#2563eb';
 
 const s = {
-  page: { minHeight: '100vh', background: '#f4f7fc', color: '#1e293b', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif' },
-  top: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 2rem', background: '#fff', borderBottom: '1px solid #e2e8f0' },
-  logo: { fontSize: '1.1rem', fontWeight: '700', color: primary },
-  logout: { background: 'none', border: '1px solid #e2e8f0', color: '#64748b', padding: '0.4rem 1rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' },
+  page: { minHeight: '100vh', background: 'var(--background)', color: 'var(--text-primary)', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif' },
+  top: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 2rem', background: 'var(--surface)', borderBottom: '1px solid var(--border)' },
+  logo: { fontSize: '1.1rem', fontWeight: '700', color: 'var(--primary)' },
+  logout: { 
+    background: 'none', 
+    border: '1px solid var(--border)', 
+    color: 'var(--text-secondary)', 
+    padding: '0.4rem 1rem', 
+    borderRadius: '6px', 
+    cursor: 'pointer', 
+    fontSize: '0.8rem',
+    transition: 'var(--transition)',
+    ':hover': {
+      background: 'var(--background)',
+      color: 'var(--text-primary)'
+    }
+  },
   main: { maxWidth: '1200px', margin: '0 auto', padding: '2rem' },
-  title: { fontSize: '1.5rem', fontWeight: '700', color: '#0f172a', marginBottom: '0.25rem' },
-  subtitle: { color: '#64748b', fontSize: '0.9rem', marginBottom: '2rem' },
+  title: { fontSize: '1.5rem', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '0.25rem' },
+  subtitle: { color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '2rem' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' },
-  card: { background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.25rem' },
-  cardName: { fontSize: '1.1rem', fontWeight: '700', color: '#0f172a', marginBottom: '0.75rem' },
-  cardStat: { color: '#64748b', fontSize: '0.85rem', marginBottom: '0.25rem' },
-  cardValue: { color: primary, fontWeight: '600' },
-  empty: { textAlign: 'center', color: '#94a3b8', padding: '4rem', fontSize: '0.9rem' },
-  loading: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', color: '#94a3b8', fontSize: '1rem' },
+  card: { 
+    background: 'var(--surface)', 
+    border: '1px solid var(--border)', 
+    borderRadius: '12px', 
+    padding: '1.25rem',
+    transition: 'var(--transition)',
+    ':hover': { boxShadow: 'var(--shadow-md)' }
+  },
+  cardName: { fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '0.75rem' },
+  cardStat: { color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '0.25rem' },
+  cardValue: { color: 'var(--primary)', fontWeight: '600' },
+  empty: { textAlign: 'center', color: 'var(--text-muted)', padding: '4rem', fontSize: '0.9rem' },
+  loading: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', color: 'var(--text-muted)', fontSize: '1rem' },
 };
 
 function fmt(n) {
