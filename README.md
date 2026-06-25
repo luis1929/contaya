@@ -49,13 +49,19 @@ Plataforma contable multi-tenant para gestión de facturación electrónica, cli
 ```
 contaya/
 ├── backend/
-│   ├── server.js        # API Express (único archivo)
+│   ├── server.js        # API Express (único archivo con todas las rutas)
 │   └── uploads/         # Archivos subidos
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx      # Router con 10 rutas
-│   │   ├── services/    # api.js (axios), supabase.js
-│   │   ├── pages/       # 10 páginas (Landing, Login, Dashboard, etc.)
+│   │   ├── App.jsx      # Router con 11 rutas
+│   │   ├── services/    # api.js (axios con interceptor JWT)
+│   │   ├── pages/
+│   │   │   ├── AdminDashboard.jsx  # Panel admin (lista billers, impersonar)
+│   │   │   ├── Dashboard.jsx       # Panel biller (con banner impersonación)
+│   │   │   ├── Facturas.jsx        # Gestión de facturas
+│   │   │   ├── Clients.jsx         # Lista de clientes
+│   │   │   ├── Landing.jsx, Login.jsx, Register.jsx, ...
+│   │   │   └── CompanyPage.jsx
 │   │   └── components/  # Navbar, Hero, Features, etc.
 │   └── dist/            # Build de producción
 ├── supabase-schema.sql  # Migración inicial
@@ -110,9 +116,10 @@ Crear `backend/.env`:
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
 | `POST` | `/api/auth/register` | No | Registrar admin |
-| `POST` | `/api/auth/login` | No | Login (email admin / email o NIT facturador) |
+| `POST` | `/api/auth/login` | No | Login (email admin → role admin; email o NIT → role biller) |
 | `POST` | `/api/auth/reset-password` | No | Restablecer contraseña admin |
 | `GET` | `/api/auth/me` | JWT | Info del usuario actual |
+| `POST` | `/api/auth/impersonate/:biller_id` | JWT+Admin | Genera token temporal (2h) para ver datos de ese facturador |
 
 ### Facturas
 
@@ -161,6 +168,22 @@ Crear `backend/.env`:
 |--------|------|------|-------------|
 | `GET` | `/api/health` | No | Health check |
 
+## Frontend — Rutas
+
+| Ruta | Página | Acceso |
+|------|--------|--------|
+| `/` | Landing | Público |
+| `/login` | Login | Público |
+| `/register` | Registro admin | Público |
+| `/forgot-password` | Recuperar contraseña | Público |
+| `/admin` | AdminDashboard | `role: 'admin'` (redirigido automáticamente tras login) |
+| `/dashboard` | Dashboard | `role: 'biller'` o impersonación |
+| `/facturas` | Facturas | Autenticado |
+| `/clientes` | Clientes | Autenticado |
+| `/upload` | Subir documentos | Autenticado |
+| `/declarations` | Declaraciones | Autenticado |
+| `/company` | Perfil empresa | Autenticado |
+
 ## Modelo multi-tenant
 
 El aislamiento se implementa mediante la función `filterBillerId(req)` en cada ruta:
@@ -181,10 +204,20 @@ function filterBillerId(req) {
 
 ### Flujo de autenticación
 
-1. **Admin** ingresa email + password → se busca en `users` → JWT con `role: 'admin'`
-2. **Biller** ingresa email o NIT + password → se busca en `billers` → JWT con `role: 'biller'`, `biller_id`
-3. Token JWT expira en 7 días
-4. Cada request incluye `Authorization: Bearer <token>` → middleware verifica e inyecta `req.user`, `req.biller_id`
+1. **Admin** ingresa email + password → se busca en `users` → JWT con `role: 'admin'` → redirige a `/admin`
+2. **Biller** ingresa email o NIT + password → se busca en `billers` → JWT con `role: 'biller'`, `biller_id` → redirige a `/dashboard`
+3. **Impersonación**: Admin hace click en "Entrar como" → `POST /api/auth/impersonate/:id` → token temporal (2h) con `role: 'biller'` + `impersonated_by` → dashboard muestra banner amarillo con opción "Volver al Admin"
+4. Token JWT expira en 7 días (2h para tokens de impersonación)
+5. Cada request incluye `Authorization: Bearer <token>` → middleware verifica e inyecta `req.user`, `req.biller_id`
+
+## Panel de Administración (`/admin`)
+
+El panel admin permite:
+- **Listar** todos los facturadores con nombre, RNC, email, ciudad, estado (activo/inactivo) y conteo de clientes
+- **Impersonar** — entrar como cualquier facturador para auditar sus datos sin salir de la sesión
+- **Activar/Desactivar** facturadores
+- **Eliminar** facturadores
+- **Stats** — total de facturadores y clientes registrados
 
 ## Base de datos
 
