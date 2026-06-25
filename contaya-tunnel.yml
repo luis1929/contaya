@@ -1,0 +1,9 @@
+tunnel: 8ae96f32-55ea-49f4-946f-0a658767504e
+credentials-file: /home/barrera/.cloudflared/8ae96f32-55ea-49f4-946f-0a658767504e.json
+
+ingress:
+  - hostname: drivingradio.us
+    service: http://localhost:3001
+  - hostname: www.drivingradio.us
+    service: http://localhost:3001
+  - service: http_status:404

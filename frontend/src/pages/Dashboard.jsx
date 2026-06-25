@@ -1,101 +1,44 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { Link, useNavigate } from 'react-router-dom';
-import ImpersonateBanner from '../components/ImpersonateBanner';
+
+const blue = '#062a51';
+const gold = '#FFD066';
+const bg = '#fafafa';
+
+const features = [
+  { to: '/facturas', icon: '📄', title: 'Gestión de Facturas', desc: 'Sube y procesa facturas en PDF. Extracción automática de datos como RNC, NCF, montos y fechas.' },
+  { to: '/declarations', icon: '📊', title: 'Declaración de IVA', desc: 'Calcula automáticamente el ITBIS y genera las declaraciones mensuales de IVA listas para presentar.' },
+  { to: '/declarations', icon: '💰', title: 'Declaración de Renta', desc: 'Prepara tu declaración anual de ISR con base en ingresos, gastos y retenciones registradas.' },
+  { to: '/upload', icon: '🏦', title: 'Conciliación Bancaria', desc: 'Importa extractos bancarios y concilia automáticamente con tus facturas y movimientos registrados.' },
+  { to: '/upload', icon: '📋', title: 'Control de Gastos', desc: 'Clasifica y monitorea todos tus gastos deducibles. Obtén reportes detallados por categoría y período.' },
+  { to: '#reportes', icon: '📈', title: 'Reportes y Analytics', desc: 'Visualiza dashboards con indicadores clave: flujo de caja, cuentas por cobrar/pagar y rentabilidad.' },
+];
 
 const s = {
-  page: { minHeight: '100vh', background: '#f8fafc', color: '#111827', fontFamily: 'system-ui, sans-serif' },
-  top: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '1rem 2rem', borderBottom: '1px solid #e5e7eb', background: '#fff',
-  },
-  logo: { fontSize: '1.25rem', fontWeight: '700', color: '#1e40af' },
-  topLink: { color: '#4b5563', textDecoration: 'none', fontSize: '0.85rem', marginRight: '1rem', fontWeight: '500' },
-  logout: {
-    background: 'none', border: '1px solid #d1d5db',
-    color: '#4b5563', padding: '0.5rem 1rem', borderRadius: '8px',
-    cursor: 'pointer', fontSize: '0.85rem',
-  },
+  page: { minHeight: '100vh', background: bg, color: '#333', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif' },
+  top: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 2rem', background: blue, color: '#fff' },
+  logo: { fontSize: '1.1rem', fontWeight: '700', color: '#fff' },
+  logout: { background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', padding: '0.4rem 1rem', borderRadius: '5px', cursor: 'pointer', fontSize: '0.85rem' },
   main: { maxWidth: '1200px', margin: '0 auto', padding: '2rem' },
-  title: { fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.5rem' },
-  subtitle: { color: '#6b7280', fontSize: '0.9rem', marginBottom: '2rem' },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' },
-  card: {
-    background: '#fff', border: '1px solid #e5e7eb',
-    borderRadius: '12px', padding: '1.25rem',
-  },
-  cardLabel: { color: '#6b7280', fontSize: '0.8rem', marginBottom: '0.35rem' },
-  cardValue: { fontSize: '1.4rem', fontWeight: '700', color: '#111827' },
-  cardAccent: { color: '#2563eb' },
-  table: {
-    width: '100%', borderCollapse: 'collapse',
-    background: '#fff', borderRadius: '12px', overflow: 'hidden',
-    border: '1px solid #e5e7eb',
-  },
-  th: {
-    padding: '0.75rem 1rem', textAlign: 'left',
-    color: '#6b7280', fontSize: '0.8rem', fontWeight: '600',
-    borderBottom: '1px solid #e5e7eb',
-    textTransform: 'uppercase', letterSpacing: '0.05em', background: '#f9fafb',
-  },
-  td: {
-    padding: '0.75rem 1rem', fontSize: '0.9rem',
-    borderBottom: '1px solid #f3f4f6',
-  },
-  status: (v) => ({
-    display: 'inline-block', padding: '0.2rem 0.6rem', borderRadius: '999px',
-    fontSize: '0.75rem', fontWeight: '500',
-    background: v === 'Firmado' ? '#dcfce7' : '#fef3c7',
-    color: v === 'Firmado' ? '#16a34a' : '#d97706',
-  }),
-  paid: (v) => ({
-    color: v ? '#16a34a' : '#9ca3af', fontSize: '0.85rem',
-  }),
-  loading: {
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    minHeight: '100vh', color: '#6b7280', fontSize: '1rem',
-  },
-  billerGrid: {
-    display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-    gap: '1rem',
-  },
-  billerCard: (active) => ({
-    background: '#fff', border: `1px solid ${active ? '#e5e7eb' : '#fecaca'}`,
-    borderRadius: '12px', padding: '1.25rem',
-    display: 'flex', flexDirection: 'column', gap: '0.5rem',
-    opacity: active ? 1 : 0.6,
-    transition: 'opacity .2s',
-  }),
-  billerName: { fontSize: '1.1rem', fontWeight: '700', color: '#111827' },
-  billerMeta: { color: '#6b7280', fontSize: '0.8rem' },
-  row: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem',
-  },
-  toggle: {
-    position: 'relative', display: 'inline-block', width: '40px', height: '22px',
-    flexShrink: 0,
-  },
-  toggleInput: {
-    opacity: 0, width: 0, height: 0,
-  },
-  toggleSlider: (on) => ({
-    position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
-    borderRadius: '22px',
-    background: on ? '#2563eb' : '#d1d5db',
-    transition: '.3s',
-  }),
-  toggleKnob: (on) => ({
-    position: 'absolute', top: '2px', left: on ? '20px' : '2px',
-    width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
-    transition: '.3s',
-  }),
-  enterBtn: (active) => ({
-    padding: '0.5rem 1.25rem',
-    background: active ? '#2563eb' : '#9ca3af',
-    color: '#fff', border: 'none', borderRadius: '8px',
-    fontSize: '0.85rem', fontWeight: '600', cursor: active ? 'pointer' : 'not-allowed',
-  }),
-  empty: { textAlign: 'center', color: '#9ca3af', padding: '3rem', fontSize: '0.9rem' },
+  header: { marginBottom: '2.5rem' },
+  title: { fontSize: '1.5rem', fontWeight: '700', color: '#222', marginBottom: '0.25rem' },
+  subtitle: { color: '#888', fontSize: '0.9rem' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' },
+  card: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '1.75rem', cursor: 'pointer', textDecoration: 'none', color: 'inherit', display: 'block', transition: 'box-shadow 0.2s, transform 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' },
+  iconBox: { width: '48px', height: '48px', background: '#f0f4ff', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', marginBottom: '1rem' },
+  cardTitle: { fontSize: '1.1rem', fontWeight: '600', color: '#222', marginBottom: '0.5rem' },
+  cardDesc: { color: '#666', fontSize: '0.85rem', lineHeight: '1.6' },
+  reportesSection: { marginTop: '3rem', borderTop: '1px solid #e5e7eb', paddingTop: '2rem' },
+  reportesHeader: { fontSize: '1.2rem', fontWeight: '700', color: '#222', marginBottom: '1.5rem' },
+  cardSm: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1.25rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' },
+  cardLabel: { color: '#888', fontSize: '0.8rem', marginBottom: '0.3rem' },
+  cardValue: { fontSize: '1.4rem', fontWeight: '700', color: '#222' },
+  cardAccent: { color: blue },
+  table: { width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' },
+  th: { padding: '0.7rem 1rem', textAlign: 'left', color: '#666', fontSize: '0.75rem', fontWeight: '600', borderBottom: '1px solid #eee', textTransform: 'uppercase', letterSpacing: '0.05em', background: bg },
+  td: { padding: '0.7rem 1rem', fontSize: '0.85rem', borderBottom: '1px solid #f0f0f0' },
+  loading: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', color: '#888', fontSize: '1rem' },
 };
 
 function fmt(n) {
@@ -103,207 +46,131 @@ function fmt(n) {
   return '$' + Number(n).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function fmtDate(d) {
-  if (!d) return '';
-  return d.slice(0, 10);
-}
-
 export default function Dashboard() {
-  const [impersonating, setImpersonating] = useState(api.isImpersonating());
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const isAdmin = user.role === 'admin' && !impersonating;
+  const [userRole, setUserRole] = useState('admin');
+  const [userName, setUserName] = useState('');
+  const [summary, setSummary] = useState(null);
+  const [company, setCompany] = useState(null);
   const navigate = useNavigate();
 
-  // ——— Admin: Administración de usuarios ———
-  if (isAdmin) {
-    return <AdminUsersView navigate={navigate} />;
-  }
-
-  // ——— Biller / Impersonated: Dashboard de facturación ———
-  return <BillingDashboard impersonating={impersonating} navigate={navigate} />;
-}
-
-/* ─── ADMIN: Administración de Usuarios ─── */
-function AdminUsersView({ navigate }) {
-  const [billers, setBillers] = useState([]);
-  const [loading, setLoading] = useState(true);
-
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) return navigate('/login');
-    api.getBillers()
-      .then(setBillers)
-      .catch(() => navigate('/login'))
-      .finally(() => setLoading(false));
-  }, [navigate]);
-
-  async function handleToggle(biller) {
-    const next = !biller.is_active;
-    try {
-      const updated = await api.updateBiller(biller.id, { is_active: next });
-      setBillers(prev => prev.map(b => b.id === biller.id ? { ...b, is_active: updated.is_active } : b));
-    } catch (err) {
-      alert('Error al actualizar estado');
-    }
-  }
-
-  async function handleEnter(biller) {
-    if (!biller.is_active) return;
-    try {
-      const data = await api.impersonate(biller.id);
-      localStorage.setItem('impersonate_token', data.token);
-      localStorage.setItem('impersonating', JSON.stringify({ biller_id: biller.id, name: biller.name }));
-      window.location.reload();
-    } catch (err) {
-      alert('Error al ingresar al cliente');
-    }
-  }
-
-  function handleLogout() {
-    localStorage.clear();
-    navigate('/');
-  }
-
-  if (loading) return <div style={s.loading}>Cargando...</div>;
+    const t = localStorage.getItem('token');
+    if (!t) return navigate('/login');
+    const u = JSON.parse(localStorage.getItem('user') || '{}');
+    setUserRole(u.role || 'admin');
+    setUserName(u.name || '');
+    api.getInvoiceSummary().then(setSummary).catch(() => {});
+    api.getCompany().then(setCompany).catch(() => {});
+  }, []);
 
   return (
     <div style={s.page}>
-      <div style={s.top}>
-        <span style={s.logo}>Contaya</span>
-        <button style={s.logout} onClick={handleLogout}>Cerrar sesión</button>
-      </div>
-      <div style={s.main}>
-        <h1 style={s.title}>Administración de usuarios</h1>
-        <p style={s.subtitle}>{billers.length} clientes registrados en la plataforma</p>
-
-        {billers.length === 0 ? (
-          <p style={s.empty}>No hay clientes registrados aún</p>
-        ) : (
-          <div style={s.billerGrid}>
-            {billers.map(b => (
-              <div key={b.id} style={s.billerCard(b.is_active)}>
-                <div style={s.row}>
-                  <div style={s.billerName}>{b.name}</div>
-                  <label style={s.toggle}>
-                    <input
-                      type="checkbox"
-                      style={s.toggleInput}
-                      checked={!!b.is_active}
-                      onChange={() => handleToggle(b)}
-                    />
-                    <span style={s.toggleSlider(!!b.is_active)} />
-                    <span style={s.toggleKnob(!!b.is_active)} />
-                  </label>
-                </div>
-
-                <div style={s.billerMeta}>NIT: {b.document_number}</div>
-                <div style={s.billerMeta}>
-                  {b.invoice_count || 0} facturas — Total: {fmt(b.total_sum)}
-                </div>
-                <div style={s.billerMeta}>
-                  Estado: {b.is_active ? 'Activo' : 'Inactivo'}
-                </div>
-
-                <button
-                  style={s.enterBtn(b.is_active)}
-                  onClick={() => handleEnter(b)}
-                  disabled={!b.is_active}
-                >
-                  {b.is_active ? 'Ingresar' : 'Desactivado'}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ─── BILLER / IMPERSONATED: Dashboard de facturación ─── */
-function BillingDashboard({ impersonating, navigate }) {
-  const [invoices, setInvoices] = useState([]);
-  const [summary, setSummary] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const token = localStorage.getItem('token') || localStorage.getItem('impersonate_token');
-    if (!token) return navigate('/login');
-    Promise.all([api.getInvoices(), api.getInvoiceSummary()])
-      .then(([inv, sum]) => { setInvoices(inv); setSummary(sum); })
-      .catch(() => { localStorage.clear(); navigate('/login'); })
-      .finally(() => setLoading(false));
-  }, [navigate]);
-
-  function handleLogout() {
-    localStorage.clear();
-    navigate('/');
-  }
-
-  if (loading) return <div style={s.loading}>Cargando...</div>;
-
-  return (
-    <div style={s.page}>
-      <ImpersonateBanner />
       <div style={s.top}>
         <span style={s.logo}>Contaya</span>
         <div>
-          <Link to="/facturas" style={s.topLink}>Facturas</Link>
-          <Link to="/clientes" style={s.topLink}>Clientes</Link>
-          <button style={{ ...s.logout, marginLeft: '1rem' }} onClick={handleLogout}>Cerrar sesión</button>
+          <button style={s.logout} onClick={() => { localStorage.clear(); navigate('/'); }}>Cerrar sesión</button>
         </div>
       </div>
       <div style={s.main}>
-        <h1 style={s.title}>Panel de facturación</h1>
-        <p style={s.subtitle}>{invoices.length} facturas encontradas</p>
+        <div style={s.header}>
+          <h1 style={s.title}>Bienvenido{userName ? `, ${userName}` : ''}</h1>
+          <p style={s.subtitle}>Selecciona un módulo para comenzar</p>
+        </div>
+
+        {company?.name && (
+          <div style={{
+            background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px',
+            padding: '1.25rem 1.75rem', marginBottom: '1.5rem',
+            display: 'flex', flexWrap: 'wrap', gap: '2rem', alignItems: 'center',
+          }}>
+            <div>
+              <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '0.15rem' }}>FACTURADOR</div>
+              <div style={{ fontWeight: '700', fontSize: '1.1rem', color: '#222' }}>{company.name}</div>
+            </div>
+            {company.rnc && (
+              <div>
+                <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '0.15rem' }}>RNC</div>
+                <div style={{ fontWeight: '600', color: blue }}>{company.rnc}</div>
+              </div>
+            )}
+            {company.address && (
+              <div>
+                <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '0.15rem' }}>DIRECCIÓN</div>
+                <div style={{ fontSize: '0.9rem' }}>{company.address}</div>
+              </div>
+            )}
+            {company.email && (
+              <div>
+                <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '0.15rem' }}>CORREO</div>
+                <div style={{ fontSize: '0.9rem' }}>{company.email}</div>
+              </div>
+            )}
+            {company.phone && (
+              <div>
+                <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '0.15rem' }}>TELÉFONO</div>
+                <div style={{ fontSize: '0.9rem' }}>{company.phone}</div>
+              </div>
+            )}
+            <Link to="/company" style={{ color: blue, fontSize: '0.8rem', marginLeft: 'auto', textDecoration: 'none' }}>Editar</Link>
+          </div>
+        )}
 
         <div style={s.grid}>
-          <div style={s.card}>
-            <div style={s.cardLabel}>Total facturado</div>
-            <div style={{ ...s.cardValue, ...s.cardAccent }}>{fmt(summary?.total_sum)}</div>
-          </div>
-          <div style={s.card}>
-            <div style={s.cardLabel}>Facturas</div>
-            <div style={s.cardValue}>{summary?.total_count || 0}</div>
-          </div>
-          <div style={s.card}>
-            <div style={s.cardLabel}>Promedio por factura</div>
-            <div style={s.cardValue}>{fmt(summary?.total_avg)}</div>
-          </div>
-          <div style={s.card}>
-            <div style={s.cardLabel}>Período</div>
-            <div style={{ ...s.cardValue, fontSize: '1rem' }}>
-              {summary?.first_date?.slice(0,7)} — {summary?.last_date?.slice(0,7)}
-            </div>
-          </div>
+          {features.map((f, i) => (
+            f.to.startsWith('#') ? (
+              <a key={i} href={f.to} style={s.card}
+                onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)'; e.currentTarget.style.transform = 'none'; }}>
+                <div style={s.iconBox}>{f.icon}</div>
+                <h3 style={s.cardTitle}>{f.title}</h3>
+                <p style={s.cardDesc}>{f.desc}</p>
+              </a>
+            ) : (
+              <Link key={i} to={f.to} style={s.card}
+                onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)'; e.currentTarget.style.transform = 'none'; }}>
+                <div style={s.iconBox}>{f.icon}</div>
+                <h3 style={s.cardTitle}>{f.title}</h3>
+                <p style={s.cardDesc}>{f.desc}</p>
+              </Link>
+            )
+          ))}
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
-          <table style={s.table}>
-            <thead>
-              <tr>
-                <th style={s.th}>NCF</th>
-                <th style={s.th}>Cliente</th>
-                <th style={s.th}>Fecha</th>
-                <th style={s.th}>Total</th>
-                <th style={s.th}>Estado</th>
-                <th style={s.th}>Pagado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {invoices.map(inv => (
-                <tr key={inv.id}>
-                  <td style={{ ...s.td, fontFamily: 'monospace', fontSize: '0.85rem' }}>{inv.ncf}</td>
-                  <td style={s.td}>{inv.client_name || (inv.client || '').split('...')[0]}</td>
-                  <td style={s.td}>{inv.created_at?.slice(0,10)}</td>
-                  <td style={{ ...s.td, fontWeight: '600' }}>{fmt(inv.total)}</td>
-                  <td style={s.td}><span style={s.status(inv.status)}>{inv.status}</span></td>
-                  <td style={{ ...s.td, ...s.paid(inv.paid) }}>{inv.paid ? 'Sí' : 'No'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div id="reportes" style={s.reportesSection}>
+          <h2 style={s.reportesHeader}>Reportes y Analytics</h2>
+
+          {summary && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+              <div style={s.cardSm}>
+                <div style={s.cardLabel}>Total facturado</div>
+                <div style={{ ...s.cardValue, ...s.cardAccent }}>{fmt(summary.total_sum)}</div>
+              </div>
+              <div style={s.cardSm}>
+                <div style={s.cardLabel}>Facturas</div>
+                <div style={s.cardValue}>{summary.total_count || 0}</div>
+              </div>
+              <div style={s.cardSm}>
+                <div style={s.cardLabel}>Promedio</div>
+                <div style={s.cardValue}>{fmt(summary.total_avg)}</div>
+              </div>
+              <div style={s.cardSm}>
+                <div style={s.cardLabel}>IVA (19%)</div>
+                <div style={s.cardValue}>{fmt(summary.iva_sum)}</div>
+              </div>
+              <div style={s.cardSm}>
+                <div style={s.cardLabel}>Cobrado</div>
+                <div style={s.cardValue}>{fmt(summary.paid_sum)}</div>
+              </div>
+              <div style={s.cardSm}>
+                <div style={s.cardLabel}>Período</div>
+                <div style={{ ...s.cardValue, fontSize: '1rem' }}>{summary.first_date?.slice(0,7)} — {summary.last_date?.slice(0,7)}</div>
+              </div>
+            </div>
+          )}
         </div>
+
+
       </div>
     </div>
   );

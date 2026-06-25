@@ -2,15 +2,8 @@ import axios from 'axios';
 
 const client = axios.create({ baseURL: '/api' });
 
-function getToken() {
-  if (localStorage.getItem('impersonating')) {
-    return localStorage.getItem('impersonate_token');
-  }
-  return localStorage.getItem('token');
-}
-
 client.interceptors.request.use(config => {
-  const token = getToken();
+  const token = localStorage.getItem('token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
@@ -34,12 +27,12 @@ export const api = {
     const { data } = await client.delete(`/documents/${id}`);
     return data;
   },
-  getInvoices: async () => {
-    const { data } = await client.get('/invoices');
+  getInvoices: async (params = {}) => {
+    const { data } = await client.get('/invoices', { params });
     return data;
   },
-  getInvoiceSummary: async () => {
-    const { data } = await client.get('/invoices/summary');
+  getInvoiceSummary: async (params = {}) => {
+    const { data } = await client.get('/invoices/summary', { params });
     return data;
   },
   register: async (name, email, password) => {
@@ -54,28 +47,20 @@ export const api = {
     const { data } = await client.get('/auth/me');
     return data;
   },
-  getBillers: async () => {
-    const { data } = await client.get('/billers');
+  getCompany: async () => {
+    const { data } = await client.get('/company');
     return data;
   },
-  impersonate: async (billerId) => {
-    const { data } = await client.post(`/auth/impersonate/${billerId}`);
+  updateCompany: async (company) => {
+    const { data } = await client.put('/company', company);
     return data;
   },
-  updateBiller: async (id, data) => {
-    const { data: res } = await client.put(`/billers/${id}`, data);
-    return res;
+  getClients: async () => {
+    const { data } = await client.get('/clients');
+    return data;
   },
-  stopImpersonating() {
-    localStorage.removeItem('impersonate_token');
-    localStorage.removeItem('impersonating');
-  },
-  isImpersonating() {
-    return !!localStorage.getItem('impersonating');
-  },
-  getImpersonatingInfo() {
-    try {
-      return JSON.parse(localStorage.getItem('impersonating'));
-    } catch { return null; }
+  changePassword: async (currentPassword, newPassword) => {
+    const { data } = await client.post('/auth/change-password', { currentPassword, newPassword });
+    return data;
   },
 };

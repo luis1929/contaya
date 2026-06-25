@@ -8,6 +8,7 @@ import Register from './pages/Register';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
 import Clients from './pages/Clients';
+import CompanyPage from './pages/CompanyPage';
 import './App.css';
 
 function App() {
@@ -23,6 +24,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/clientes" element={<Clients />} />
+        <Route path="/company" element={<CompanyPage />} />
       </Routes>
     </BrowserRouter>
   );
