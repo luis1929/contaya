@@ -1,6 +1,6 @@
 # Contaya
 
-Plataforma contable multi-tenant para gestión de facturación electrónica, clientes y documentos. Desarrollada para facturadores colombianos que requieren consolidar facturas electrónicas extraídas desde [Facturatech](https://plataforma.facturatech.co).
+Plataforma contable multi-tenant para gestión de facturación electrónica, clientes y documentos.
 
 ## Tech Stack
 
@@ -8,76 +8,59 @@ Plataforma contable multi-tenant para gestión de facturación electrónica, cli
 |------|-----------|
 | **Frontend** | React 19, React Router 7, Vite 8, Axios |
 | **Backend** | Node.js, Express 5, pg (node-postgres) |
-| **Base de datos** | PostgreSQL 16 |
-| **Scraper** | Node.js (ESM), Playwright |
+| **Base de datos** | PostgreSQL + Supabase schema |
 | **Auth** | JWT (jsonwebtoken), bcryptjs |
-| **Uploads** | Multer 2 |
-| **Producción** | Oracle Cloud VM (Ubuntu), nginx, systemd, Cloudflare SSL |
+| **Uploads** | Multer 2 (PDF, JPG, PNG, CSV, XLSX) |
+| **Infra** | Oracle Cloud VM (Ubuntu), nginx, systemd, Cloudflare Tunnel |
 
 ## Arquitectura
 
 ```
-┌─────────────────────────────────────────────────┐
-│  Navegador                                      │
-│  └─ drivingradio.us                             │
-└──────────────┬──────────────────────────────────┘
-               │ HTTPS (Cloudflare)
-┌──────────────▼──────────────────────────────────┐
-│  nginx                                          │
-│  ├─ /api/*          → backend:3001              │
-│  ├─ /uploads/*      → backend/uploads/          │
-│  └─ /*              → frontend/dist/            │
-└─────────────────────────────────────────────────┘
-       │                          │
-┌──────▼──────┐           ┌──────▼──────┐
-│  Backend    │           │  Frontend   │
-│  Express 5  │           │  React SPA  │
-│  Port 3001  │           │  (Vite)     │
-└──────┬──────┘           └─────────────┘
-       │
-┌──────▼──────┐
-│  PostgreSQL │
-│  (contaya)  │
-└──────┬──────┘
-       │
-┌──────▼──────┐
-│  Scraper    │
-│  Playwright │
-│  (manual)   │
-└─────────────┘
+┌───────────────────────────────────────────────┐
+│  Navegador                                    │
+│  └─ drivingradio.us                           │
+└──────────────────┬────────────────────────────┘
+                   │ HTTPS (Cloudflare)
+┌──────────────────▼────────────────────────────┐
+│  Cloudflare Tunnel → localhost:3001           │
+│  (Express sirve API + frontend build)          │
+└──────────────────┬────────────────────────────┘
+                   │
+┌──────────────────▼────────────────────────────┐
+│  backend/server.js (Express 5 - monolito)      │
+│  ├─ Auth (register, login, reset-password)    │
+│  ├─ Invoices (CRUD, summary, consolidated)    │
+│  ├─ Clients (CRUD con filtro multi-tenant)    │
+│  ├─ Billers (CRUD admin)                      │
+│  ├─ Documents (upload/list/delete)            │
+│  ├─ Company (perfil empresa)                  │
+│  └─ Health check                              │
+└──────────────────┬────────────────────────────┘
+                   │
+┌──────────────────▼────────────────────────────┐
+│  PostgreSQL (contaya)                          │
+│  Tablas: users, billers, clients, invoices,    │
+│          invoice_items, documents              │
+└───────────────────────────────────────────────┘
 ```
 
 ## Estructura del proyecto
 
 ```
 contaya/
-├── deploy.sh                 # Script de despliegue en producción
 ├── backend/
-│   ├── server.js             # Punto de entrada (Express)
-│   ├── db/pool.js            # Pool de conexión PostgreSQL
-│   ├── middleware/
-│   │   ├── auth.js           # JWT + adminOnly
-│   │   └── tenantContext.js  # Aislamiento multi-tenant
-│   ├── routes/
-│   │   ├── auth.js           # Login, register, reset-password, impersonate
-│   │   ├── invoices.js       # Facturas CRUD, summary, consolidated
-│   │   ├── clients.js        # Clientes por facturador
-│   │   ├── billers.js        # Admin: CRUD de facturadores
-│   │   ├── documents.js      # Upload/list/delete documentos
-│   │   └── health.js         # Health check
-│   └── uploads/              # Archivos subidos (tenant-scoped)
+│   ├── server.js        # API Express (único archivo)
+│   └── uploads/         # Archivos subidos
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx           # Router (9 rutas)
-│   │   ├── services/api.js   # Cliente HTTP con interceptores
-│   │   ├── pages/            # Landing, Login, Dashboard, Facturas, etc.
-│   │   └── components/       # Navbar, Hero, Features, Footer, etc.
-│   └── dist/                 # Build de producción
-└── scraper/
-    ├── index.js              # Scraper principal de Facturatech
-    ├── scrape_biller_info.mjs
-    ├── scrape_vladimir.sh
-    └── scrape_mendieta.sh
+│   │   ├── App.jsx      # Router con 10 rutas
+│   │   ├── services/    # api.js (axios), supabase.js
+│   │   ├── pages/       # 10 páginas (Landing, Login, Dashboard, etc.)
+│   │   └── components/  # Navbar, Hero, Features, etc.
+│   └── dist/            # Build de producción
+├── supabase-schema.sql  # Migración inicial
+├── deploy.sh            # Script de despliegue
+└── contaya-tunnel.yml   # Config Cloudflare Tunnel
 ```
 
 ## Prerrequisitos
@@ -88,79 +71,37 @@ contaya/
 
 ## Instalación
 
-### Backend
-
 ```bash
-cd backend
-npm install
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-```
-
-### Scraper
-
-```bash
-cd scraper
-npm install
-npx playwright install chromium
+cd backend && npm install
+cd ../frontend && npm install
 ```
 
 ## Ejecución local
 
-### Base de datos
-
-Crear la base de datos PostgreSQL:
-
-```sql
-CREATE DATABASE contaya;
-```
-
-Ejecutar las migraciones multi-tenant si se añaden nuevas tablas:
-
 ```bash
-psql -U contaya -d contaya -f backend/migrate-multitenant.sql
-```
+# Base de datos
+psql -U contaya -d contaya -f supabase-schema.sql
 
-### Backend
+# Backend (puerto 3001)
+cd backend && npm run dev
 
-```bash
-cd backend
-npm run dev       # Desarrollo con auto-reload
-npm start         # Producción
-```
-
-El servidor corre en `http://localhost:3001`.
-
-### Frontend
-
-```bash
-cd frontend
-npm run dev       # Vite dev server con HMR
-npm run build     # Build de producción
-npm run preview   # Previsualizar build
-npm run lint      # ESLint
+# Frontend (puerto 5173 con HMR)
+cd frontend && npm run dev
 ```
 
 ## Variables de entorno
 
-Crear un archivo `.env` en `backend/`:
+Crear `backend/.env`:
 
 | Variable | Default | Descripción |
 |----------|---------|-------------|
-| `PORT` | `3001` | Puerto del servidor backend |
-| `DB_HOST` | `localhost` | Host de PostgreSQL |
-| `DB_PORT` | `5432` | Puerto de PostgreSQL |
-| `DB_USER` | `contaya` | Usuario de PostgreSQL |
-| `DB_PASSWORD` | `contaya123` | Contraseña de PostgreSQL |
-| `DB_NAME` | `contaya` | Nombre de la base de datos |
-| `JWT_SECRET` | `contaya_secret_change_in_prod` | Secreto para firmar JWT |
-
-> **Importante:** Cambiar `JWT_SECRET` y `DB_PASSWORD` en producción.
+| `PORT` | `3001` | Puerto del servidor |
+| `DB_HOST` | `localhost` | Host PostgreSQL |
+| `DB_PORT` | `5432` | Puerto PostgreSQL |
+| `DB_USER` | `contaya` | Usuario PostgreSQL |
+| `DB_PASSWORD` | `contaya123` | Contraseña |
+| `DB_NAME` | `contaya` | Base de datos |
+| `JWT_SECRET` | `contaya_secret_change_in_prod` | Secreto JWT |
 
 ## API Endpoints
 
@@ -169,33 +110,32 @@ Crear un archivo `.env` en `backend/`:
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
 | `POST` | `/api/auth/register` | No | Registrar admin |
-| `POST` | `/api/auth/login` | No | Login (email admin / NIT facturador) |
-| `POST` | `/api/auth/reset-password` | No | Restablecer contraseña (admin) |
+| `POST` | `/api/auth/login` | No | Login (email admin / email o NIT facturador) |
+| `POST` | `/api/auth/reset-password` | No | Restablecer contraseña admin |
 | `GET` | `/api/auth/me` | JWT | Info del usuario actual |
-| `POST` | `/api/auth/impersonate/:biller_id` | JWT+Admin | Suplantar facturador |
 
 ### Facturas
 
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
-| `GET` | `/api/invoices` | JWT+BillerCtx | Listar facturas (con filtros) |
-| `GET` | `/api/invoices/summary` | JWT+BillerCtx | Resumen de facturas |
-| `GET` | `/api/invoices/summary-by-biller` | JWT+BillerCtx | Resumen agrupado por facturador |
-| `GET` | `/api/invoices/clients-by-biller` | JWT+BillerCtx | Clientes agrupados por facturador |
-| `GET` | `/api/invoices/consolidated` | JWT+BillerCtx | Datos consolidados anuales |
+| `GET` | `/api/invoices` | JWT | Listar (admin: todas; con `?biller_id=` filtra) |
+| `GET` | `/api/invoices/summary` | JWT | Resumen (admin: global; con `?biller_id=` filtra) |
+| `GET` | `/api/invoices/summary-by-biller` | JWT | Resumen agrupado por facturador |
+| `GET` | `/api/invoices/clients-by-biller` | JWT | Clientes agrupados |
+| `GET` | `/api/invoices/consolidated` | JWT | Datos consolidados anuales |
 
 ### Clientes
 
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
-| `GET` | `/api/clients` | JWT+BillerCtx | Listar clientes del facturador |
+| `GET` | `/api/clients` | JWT | Listar (admin: todos; con `?biller_id=` filtra) |
 
 ### Facturadores (admin)
 
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
 | `GET` | `/api/billers` | JWT | Listar facturadores |
-| `POST` | `/api/billers` | JWT+Admin | Crear facturador + ejecutar scraper |
+| `POST` | `/api/billers` | JWT+Admin | Crear facturador |
 | `PUT` | `/api/billers/:id` | JWT+Admin | Actualizar facturador |
 | `DELETE` | `/api/billers/:id` | JWT+Admin | Eliminar facturador |
 
@@ -203,10 +143,17 @@ Crear un archivo `.env` en `backend/`:
 
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
-| `POST` | `/api/documents/upload` | JWT+BillerCtx | Subir documento |
-| `GET` | `/api/documents` | JWT+BillerCtx | Listar documentos |
-| `GET` | `/api/documents/:id` | JWT+BillerCtx | Obtener metadata |
-| `DELETE` | `/api/documents/:id` | JWT+BillerCtx | Eliminar documento |
+| `POST` | `/api/documents/upload` | JWT | Subir documento (PDF, JPG, PNG, CSV, XLSX) |
+| `GET` | `/api/documents` | JWT | Listar (admin: todos; con `?biller_id=` filtra) |
+| `GET` | `/api/documents/:id` | JWT | Obtener metadata |
+| `DELETE` | `/api/documents/:id` | JWT | Eliminar |
+
+### Empresa
+
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| `GET` | `/api/company` | JWT | Obtener perfil empresa |
+| `PUT` | `/api/company` | JWT | Actualizar perfil empresa |
 
 ### Health
 
@@ -216,48 +163,53 @@ Crear un archivo `.env` en `backend/`:
 
 ## Modelo multi-tenant
 
-Cada facturador se identifica mediante un `biller_id` (UUID). El middleware `tenantContext` inyecta este ID en cada request autenticado y todas las consultas SQL se filtran automáticamente con `WHERE biller_id = $N::uuid`, garantizando aislamiento estricto de datos.
+El aislamiento se implementa mediante la función `filterBillerId(req)` en cada ruta:
 
-- **Admin**: ve todos los datos de todos los facturadores y puede suplantar a cualquiera.
-- **Facturador**: solo ve sus propios datos (facturas, clientes, documentos).
+```javascript
+function filterBillerId(req) {
+  if (req.user.role === 'biller') return req.user.biller_id;  // forzoso
+  return req.query.biller_id || null;                          // admin: opcional
+}
+```
+
+### Comportamiento por rol
+
+| Rol | Sin `?biller_id=` | Con `?biller_id=xxx` |
+|-----|-------------------|----------------------|
+| **Admin** (tabla `users`) | Ve TODOS los datos (lista global) | Ve SOLO datos de ese biller |
+| **Biller** (tabla `billers`) | Ve SOLO sus datos | Ve SOLO sus datos (ignora el param) |
 
 ### Flujo de autenticación
 
-1. **Admin** inicia sesión con email → tabla `users`.
-2. **Facturador** inicia sesión con NIT → tabla `billers` por `document_number`.
-3. Token JWT expira en 7 días (2 horas para tokens de suplantación).
-4. El payload del token incluye `role`, `biller_id` y `name`.
+1. **Admin** ingresa email + password → se busca en `users` → JWT con `role: 'admin'`
+2. **Biller** ingresa email o NIT + password → se busca en `billers` → JWT con `role: 'biller'`, `biller_id`
+3. Token JWT expira en 7 días
+4. Cada request incluye `Authorization: Bearer <token>` → middleware verifica e inyecta `req.user`, `req.biller_id`
 
-## Scraper
+## Base de datos
 
-El scraper usa Playwright para extraer facturas de `plataforma.facturatech.co` y guardarlas en PostgreSQL.
+6 tablas en PostgreSQL:
 
-```bash
-cd scraper
-node index.js --user=<NIT> --pass=<password> --biller-id=<uuid>
-```
-
-También puede ejecutarse con los scripts predefinidos:
-
-```bash
-bash scrape_vladimir.sh     # Vladimir Ortega Ospino
-bash scrape_mendieta.sh     # Construcciones Lopez Mendieta
-```
+| Tabla | Propósito | Relación |
+|-------|-----------|----------|
+| `users` | Admins del sistema | — |
+| `billers` | Facturadores (multi-tenant) | `biller_id` FK en clients, invoices, documents |
+| `clients` | Clientes por facturador | FK → billers |
+| `invoices` | Facturas electrónicas | FK → billers, clients; `raw_data` (jsonb) |
+| `invoice_items` | Líneas de factura | FK → invoices (CASCADE) |
+| `documents` | Documentos subidos | FK → billers; `extracted_data` (jsonb) |
 
 ## Despliegue
-
-El proyecto se despliega en Oracle Cloud (Ubuntu) con `deploy.sh`:
 
 ```bash
 bash deploy.sh
 ```
 
-Este script:
-1. Hace pull de los últimos cambios
-2. Instala dependencias del backend
-3. Instala dependencias del frontend y genera build (`dist/`)
-4. Ajusta permisos para nginx
-5. Recarga nginx y reinicia el servicio systemd `contaya-api`
+El script:
+1. Pull de últimos cambios desde GitHub
+2. `npm install` en backend y frontend
+3. `vite build` → `frontend/dist/`
+4. Recarga nginx y reinicia `contaya-api` (systemd)
 
 ### Servicios en producción
 
@@ -266,128 +218,4 @@ Este script:
 | API backend | `sudo systemctl restart contaya-api` |
 | nginx | `sudo systemctl reload nginx` |
 | Logs backend | `sudo journalctl -u contaya-api -f` |
-
-## Sistema de Diseño y Mejoras de UI/UX
-
-### Sistema de Diseño con Variables CSS
-Contaya implementa un sistema de diseño completo basado en variables CSS para mantener consistencia visual:
-
-```css
-:root {
-  --primary: #2563eb;           /* Azul principal */
-  --primary-dark: #1e40af;      /* Azul oscuro */
-  --gray-50: #f8fafc;           /* Fondo claro */
-  --gray-800: #1e293b;          /* Texto principal */
-  --shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-  --radius: 0.5rem;             /* Radio de bordes */
-  --transition: all 0.2s ease-in-out;
-}
-```
-
-### Mejoras Implementadas
-
-#### 🎨 **Login Mejorado**
-- **Loading states** con spinner animado
-- **Hover effects** en botones y enlaces
-- **Focus states** mejorados en inputs
-- **Feedback visual** para errores
-- **Transiciones suaves** en todos los elementos
-
-#### 📊 **Página de Facturas**
-- **Paginación** (20 facturas por página)
-- **Estadísticas en tiempo real**: Total facturado, IVA, subtotal
-- **Cards interactivas** con hover effects
-- **Filtros avanzados** en grid responsive
-- **Tabla mejorada** con:
-  - Animaciones escalonadas en filas
-  - Badges para estados (Firmado/Pendiente)
-  - Información expandida de clientes
-  - Cálculos automáticos de IVA (19%) y subtotal
-
-#### 🎯 **Componentes Reutilizables**
-```css
-.card          /* Cards con sombras y hover */
-.btn           /* Botones con variantes (primary, secondary, danger) */
-.badge         /* Badges para estados (success, warning, danger, info) */
-.loading-spinner /* Spinner animado */
-.table-container /* Contenedor de tablas con scroll */
-```
-
-#### 📱 **Responsive Design**
-- **Grid adaptable** para filtros y estadísticas
-- **Tabla con scroll horizontal** en dispositivos móviles
-- **Breakpoints optimizados** para diferentes tamaños de pantalla
-- **Tipografía escalable** con unidades relativas
-
-#### ✨ **Efectos Visuales**
-- **Animaciones fade-in** para carga progresiva
-- **Transiciones suaves** en hover states
-- **Sombras y profundidad** para elementos interactivos
-- **Feedback táctil** en botones y cards
-
-### 🔄 **Navegación Consistente en Todas las Páginas**
-Todas las páginas autenticadas implementan una barra de navegación superior uniforme:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ Contaya ← Volver al Dashboard            Cerrar sesión      │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Componentes de navegación:**
-- **Logo "Contaya"**: Enlace al home con efectos hover
-- **"← Volver al Dashboard"**: Navegación principal entre módulos
-- **"Cerrar sesión"**: Botón con transiciones suaves
-
-#### 📋 **Páginas con Navegación Mejorada**
-
-##### 📄 **Clientes (`/clientes`)**
-- **Barra de navegación completa** con logo y botones
-- **Estadísticas en tiempo real**: Total clientes, facturas, monto facturado
-- **Cards interactivas** con información detallada por cliente
-- **Diseño responsive** con grid adaptable
-
-##### 📤 **Subir Documentos (`/upload`)**
-- **Drag & drop** para carga intuitiva de archivos
-- **Área de carga interactiva** con estados visuales
-- **Formatos soportados**: PDF, imágenes, CSV, Excel
-- **Feedback inmediato** después de la carga
-- **Loading states** con spinner animado
-
-##### 📊 **Declaraciones Tributarias (`/declarations`)**
-- **Cards organizadas** por tipo de declaración (IVA, Renta, ICA)
-- **Tabla de vencimientos** con días restantes calculados
-- **Estados visuales**: Completada ✅, Pendiente ⏳, Vencida ⚠️
-- **Priorización** por importancia (Alta/Media)
-- **Información contextual** sobre multas e intereses
-
-#### 🎯 **Experiencia de Usuario Unificada**
-1. **Consistencia visual**: Mismo sistema de colores, tipografía y espaciado
-2. **Feedback inmediato**: Loading states, mensajes de error, confirmaciones
-3. **Accesibilidad**: Contraste adecuado, estados focus visibles
-4. **Responsive design**: Adaptación a móviles, tablets y desktop
-
-#### 🔧 **Técnicas Implementadas**
-- **Variables CSS** para consistencia en toda la aplicación
-- **Animaciones fade-in** para carga progresiva de contenido
-- **Hover effects** en elementos interactivos
-- **Transiciones suaves** entre estados
-- **Gestión de cache** con parámetros de versión
-
-### 🚀 **Flujo de Trabajo Optimizado**
-1. **Login** → Dashboard con acceso rápido a todos los módulos
-2. **Navegación lateral** en Dashboard para administración de usuarios
-3. **Navegación superior** en todas las páginas para retorno al Dashboard
-4. **Logout** accesible desde cualquier página autenticada
-
-### 📈 **Próximas Mejoras Planeadas**
-- **Dashboard con gráficos** interactivos de rendimiento
-- **Sistema de notificaciones** toast para eventos importantes
-- **Modo oscuro/claro** para preferencias de usuario
-- **Componentes de formulario** reutilizables
-- **Exportación de datos** en formatos PDF/Excel
-- **Búsqueda avanzada** con filtros combinados
-
-## Licencia
-
-ISC
+| Tunnel | `cloudflared tunnel run` (vía systemd) |
