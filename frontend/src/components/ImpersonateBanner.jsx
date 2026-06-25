@@ -35,33 +35,31 @@ const s = {
 export default function ImpersonateBanner() {
   const navigate = useNavigate();
   
-  // Verificar si está en modo impersonation
-  const impersonatingInfo = localStorage.getItem('impersonating');
-  if (!impersonatingInfo) return null;
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  if (!user.impersonating) return null;
 
-  let info;
-  try {
-    info = JSON.parse(impersonatingInfo);
-  } catch {
-    return null;
-  }
+  const impersonatorName = user.name || 'Usuario';
 
   function handleExit() {
-    localStorage.removeItem('impersonate_token');
-    localStorage.removeItem('impersonating');
-    navigate('/dashboard');
+    const adminToken = localStorage.getItem('admin_token');
+    if (adminToken) {
+      localStorage.setItem('token', adminToken);
+      localStorage.removeItem('admin_token');
+      localStorage.setItem('user', JSON.stringify({ role: 'admin' }));
+    }
+    navigate('/admin');
   }
 
   return (
     <div style={s.banner}>
-      <span>Viendo como <span style={s.name}>{info.name || 'Usuario'}</span></span>
+      <span>Viendo como <span style={s.name}>{impersonatorName}</span></span>
       <button 
         style={s.btn}
         onClick={handleExit}
         onMouseEnter={e => e.currentTarget.style.background = s.btnHover.background}
         onMouseLeave={e => e.currentTarget.style.background = s.btn.background}
       >
-        Salir
+        Volver al Admin
       </button>
     </div>
   );

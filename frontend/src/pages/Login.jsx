@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { api } from '../services/api';
 
 const s = {
   section: {
@@ -57,18 +58,12 @@ export default function Login() {
     e.preventDefault();
     setError('');
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) return setError(data.error);
+      const data = await api.login(email, password);
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
       navigate(data.user.role === 'admin' ? '/admin' : '/dashboard');
-    } catch {
-      setError('Error de conexión');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error de conexión');
     }
   }
 

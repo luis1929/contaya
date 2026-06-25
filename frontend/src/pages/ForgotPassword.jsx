@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { api } from '../services/api';
 
 const s = {
   section: {
@@ -51,17 +52,11 @@ export default function ForgotPassword() {
     if (password !== confirm) return setError('Las contraseñas no coinciden');
     if (password.length < 6) return setError('La contraseña debe tener al menos 6 caracteres');
     try {
-      const res = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) return setError(data.error);
+      await api.resetPassword(email, password);
       setSuccess('Contraseña restablecida correctamente. Redirigiendo...');
       setTimeout(() => window.location.href = '/login', 2000);
-    } catch {
-      setError('Error de conexión');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error de conexión');
     }
   }
 

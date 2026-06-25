@@ -95,6 +95,34 @@ router.get('/me', authMiddleware, async (req, res) => {
   }
 });
 
+router.post('/change-password', authMiddleware, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Faltan campos requeridos' });
+    if (newPassword.length < 6) return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres' });
+
+    if (req.user.role === 'biller') {
+      const { rows } = await pool.query('SELECT password FROM billers WHERE id = $1', [req.user.biller_id]);
+      if (!rows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
+      const match = await bcrypt.compare(currentPassword, rows[0].password || '');
+      if (!match) return res.status(401).json({ error: 'La contraseña actual es incorrecta' });
+      const hash = await bcrypt.hash(newPassword, 10);
+      await pool.query('UPDATE billers SET password = $1, updated_at = NOW() WHERE id = $2', [hash, req.user.biller_id]);
+    } else {
+      const { rows } = await pool.query('SELECT password FROM users WHERE id = $1', [req.user.id]);
+      if (!rows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
+      const match = await bcrypt.compare(currentPassword, rows[0].password);
+      if (!match) return res.status(401).json({ error: 'La contraseña actual es incorrecta' });
+      const hash = await bcrypt.hash(newPassword, 10);
+      await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hash, req.user.id]);
+    }
+
+    res.json({ message: 'Contraseña actualizada correctamente' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/impersonate/:biller_id', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'admin') {

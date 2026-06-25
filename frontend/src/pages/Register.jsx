@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { api } from '../services/api';
 
 const styles = {
   section: {
@@ -58,18 +59,12 @@ export default function Register() {
     e.preventDefault();
     setError('');
     try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) return setError(data.error);
+      const data = await api.register(name, email, password);
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
-      navigate('/dashboard');
-    } catch {
-      setError('Error de conexión');
+      navigate(data.user.role === 'admin' ? '/admin' : '/dashboard');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error de conexión');
     }
   }
 

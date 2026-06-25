@@ -79,4 +79,56 @@ export const api = {
     const { data } = await client.delete(`/billers/${id}`);
     return data;
   },
+  createBiller: async (payload) => {
+    const { data } = await client.post('/billers', payload);
+    return data;
+  },
+  createClient: async (payload) => {
+    const { data } = await client.post('/clients', payload);
+    return data;
+  },
+  updateClient: async (id, payload) => {
+    const { data } = await client.put(`/clients/${id}`, payload);
+    return data;
+  },
+  deleteClient: async (id) => {
+    const { data } = await client.delete(`/clients/${id}`);
+    return data;
+  },
+  createInvoice: async (payload) => {
+    const { data } = await client.post('/invoices', payload);
+    return data;
+  },
+  updateInvoice: async (id, payload) => {
+    const { data } = await client.put(`/invoices/${id}`, payload);
+    return data;
+  },
+  deleteInvoice: async (id) => {
+    const { data } = await client.delete(`/invoices/${id}`);
+    return data;
+  },
+  getDeclarations: async (params = {}) => {
+    const { data } = await client.get('/declarations', { params });
+    return data;
+  },
+  getDeclarationsSummary: async (params = {}) => {
+    const { data } = await client.get('/declarations/summary', { params });
+    return data;
+  },
+  createDeclaration: async (payload) => {
+    const { data } = await client.post('/declarations', payload);
+    return data;
+  },
+  updateDeclaration: async (id, payload) => {
+    const { data } = await client.put(`/declarations/${id}`, payload);
+    return data;
+  },
+  deleteDeclaration: async (id) => {
+    const { data } = await client.delete(`/declarations/${id}`);
+    return data;
+  },
+  resetPassword: async (email, password) => {
+    const { data } = await client.post('/auth/reset-password', { email, password });
+    return data;
+  },
 };
