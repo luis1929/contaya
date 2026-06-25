@@ -1,7 +1,6 @@
-import { useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { api } from '../services/api';
 import { Link, useNavigate } from 'react-router-dom';
-import { useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 
 const blue = '#062a51';
@@ -117,6 +116,8 @@ function fmt(n) {
 export default function Dashboard() {
   const authContext = useContext(AuthContext);
   const navigate = useNavigate();
+  const [summary, setSummary] = useState(null);
+  const [company, setCompany] = useState(null);
 
   useEffect(() => {
     if (!authContext.isAuthenticated) {
