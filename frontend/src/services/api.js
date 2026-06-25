@@ -63,4 +63,20 @@ export const api = {
     const { data } = await client.post('/auth/change-password', { currentPassword, newPassword });
     return data;
   },
+  getBillers: async () => {
+    const { data } = await client.get('/billers');
+    return data;
+  },
+  impersonate: async (billerId) => {
+    const { data } = await client.post(`/auth/impersonate/${billerId}`);
+    return data;
+  },
+  updateBiller: async (id, payload) => {
+    const { data } = await client.put(`/billers/${id}`, payload);
+    return data;
+  },
+  deleteBiller: async (id) => {
+    const { data } = await client.delete(`/billers/${id}`);
+    return data;
+  },
 };

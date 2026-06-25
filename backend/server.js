@@ -165,6 +165,28 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   }
 });
 
+app.post('/api/auth/impersonate/:biller_id', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Solo administradores' });
+    const { rows } = await pool.query(
+      'SELECT id, name, document_number FROM billers WHERE id = $1 AND is_active = true',
+      [req.params.biller_id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Facturador no encontrado' });
+    const biller = rows[0];
+    const token = jwt.sign({
+      biller_id: biller.id,
+      name: biller.name,
+      document_number: biller.document_number,
+      role: 'biller',
+      impersonated_by: req.user.id
+    }, JWT_SECRET, { expiresIn: '2h' });
+    res.json({ token, biller: { id: biller.id, name: biller.name, document_number: biller.document_number } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/clients', authMiddleware, async (req, res) => {
   try {
     const bid = filterBillerId(req);
@@ -308,7 +330,11 @@ app.get('/api/billers', authMiddleware, async (req, res) => {
       const { rows } = await pool.query('SELECT * FROM billers WHERE id = $1', [req.user.biller_id]);
       return res.json(rows);
     }
-    const { rows } = await pool.query('SELECT * FROM billers ORDER BY name');
+    const { rows } = await pool.query(`
+      SELECT b.*, COUNT(c.id)::int AS client_count
+      FROM billers b LEFT JOIN clients c ON c.biller_id = b.id
+      GROUP BY b.id ORDER BY b.name
+    `);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });

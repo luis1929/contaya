@@ -49,6 +49,7 @@ function fmt(n) {
 export default function Dashboard() {
   const [userRole, setUserRole] = useState('admin');
   const [userName, setUserName] = useState('');
+  const [impersonating, setImpersonating] = useState(false);
   const [summary, setSummary] = useState(null);
   const [company, setCompany] = useState(null);
   const navigate = useNavigate();
@@ -59,12 +60,25 @@ export default function Dashboard() {
     const u = JSON.parse(localStorage.getItem('user') || '{}');
     setUserRole(u.role || 'admin');
     setUserName(u.name || '');
+    setImpersonating(!!u.impersonating);
     api.getInvoiceSummary().then(setSummary).catch(() => {});
     api.getCompany().then(setCompany).catch(() => {});
   }, []);
 
+  function backToAdmin() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/login');
+  }
+
   return (
     <div style={s.page}>
+      {impersonating && (
+        <div style={{ background: '#fef9c3', borderBottom: '1px solid #fde68a', padding: '0.5rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem', color: '#92400e' }}>
+          <span>Modo impersonación: estás viendo datos de <strong>{userName}</strong></span>
+          <button onClick={backToAdmin} style={{ background: '#92400e', color: '#fff', border: 'none', padding: '0.3rem 1rem', borderRadius: '5px', cursor: 'pointer', fontSize: '0.8rem' }}>Volver al Admin</button>
+        </div>
+      )}
       <div style={s.top}>
         <span style={s.logo}>Contaya</span>
         <div>

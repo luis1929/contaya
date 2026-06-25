@@ -66,7 +66,7 @@ export default function Login() {
       if (!res.ok) return setError(data.error);
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
-      navigate('/dashboard');
+      navigate(data.user.role === 'admin' ? '/admin' : '/dashboard');
     } catch {
       setError('Error de conexión');
     }
