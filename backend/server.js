@@ -61,6 +61,11 @@ function authMiddleware(req, res, next) {
   }
 }
 
+function filterBillerId(req) {
+  if (req.user.role === 'biller') return req.user.biller_id;
+  return req.query.biller_id || null;
+}
+
 function adjTotal(col = 'total') {
   return col;
 }
@@ -159,13 +164,14 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
 
 app.get('/api/clients', authMiddleware, async (req, res) => {
   try {
-    if (req.user.role === 'biller') {
+    const bid = filterBillerId(req);
+    if (req.user.role === 'biller' || bid) {
       const { rows } = await pool.query(`
         SELECT c.*, COUNT(i.id)::int AS invoice_count, COALESCE(SUM(i.total), 0) AS total_sum
         FROM clients c LEFT JOIN invoices i ON i.client_id = c.id
         WHERE c.biller_id = $1::uuid
         GROUP BY c.id ORDER BY c.name
-      `, [req.biller_id]);
+      `, [bid || req.biller_id]);
       return res.json(rows);
     }
     const { rows } = await pool.query(`
@@ -184,7 +190,8 @@ app.get('/api/invoices', authMiddleware, async (req, res) => {
     const { desde, hasta, cliente, estatus, facturador } = req.query;
     let sql = 'SELECT invoices.* FROM invoices WHERE 1=1';
     const params = [];
-    if (req.biller_id) { params.push(req.biller_id); sql += ` AND invoices.biller_id = $${params.length}::uuid`; }
+    const bid = filterBillerId(req) || facturador || null;
+    if (bid) { params.push(bid); sql += ` AND invoices.biller_id = $${params.length}::uuid`; }
     if (desde) { params.push(desde); sql += ` AND invoices.created_at >= $${params.length}`; }
     if (hasta) { params.push(hasta); sql += ` AND invoices.created_at <= $${params.length}`; }
     if (cliente) { params.push(`%${cliente}%`); sql += ` AND (client_name ILIKE $${params.length} OR client ILIKE $${params.length})`; }
@@ -213,7 +220,8 @@ app.get('/api/invoices/summary', authMiddleware, async (req, res) => {
       FROM invoices WHERE 1=1
     `;
     const params = [];
-    if (req.biller_id) { params.push(req.biller_id); sql += ` AND biller_id = $${params.length}::uuid`; }
+    const bid = filterBillerId(req) || facturador || null;
+    if (bid) { params.push(bid); sql += ` AND biller_id = $${params.length}::uuid`; }
     if (desde) { params.push(desde); sql += ` AND created_at >= $${params.length}`; }
     if (hasta) { params.push(hasta); sql += ` AND created_at <= $${params.length}`; }
     const { rows } = await pool.query(sql, params);
@@ -226,6 +234,7 @@ app.get('/api/invoices/summary', authMiddleware, async (req, res) => {
 app.get('/api/invoices/summary-by-biller', authMiddleware, async (req, res) => {
   try {
     const { desde, hasta } = req.query;
+    const bid = filterBillerId(req);
     let sql = `
       SELECT
         biller_id,
@@ -234,9 +243,9 @@ app.get('/api/invoices/summary-by-biller', authMiddleware, async (req, res) => {
       FROM invoices WHERE biller_id IS NOT NULL
     `;
     const params = [];
+    if (bid) { params.push(bid); sql += ` AND biller_id = $${params.length}::uuid`; }
     if (desde) { params.push(desde); sql += ` AND created_at >= $${params.length}`; }
     if (hasta) { params.push(hasta); sql += ` AND created_at <= $${params.length}`; }
-    if (req.user.role === 'biller') { params.push(req.user.biller_id); sql += ` AND biller_id = $${params.length}::uuid`; }
     sql += ' GROUP BY biller_id';
     const { rows } = await pool.query(sql, params);
     res.json(rows);
@@ -383,9 +392,10 @@ app.put('/api/company', authMiddleware, async (req, res) => {
 app.post('/api/documents/upload', authMiddleware, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    const ownerId = req.user.role === 'biller' ? req.biller_id : req.query.biller_id;
     const { rows } = await pool.query(
       'INSERT INTO documents (original_name, filename, size, mimetype, type, biller_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
-      [req.file.originalname, req.file.filename, req.file.size, req.file.mimetype, detectType(req.file.originalname), req.biller_id]
+      [req.file.originalname, req.file.filename, req.file.size, req.file.mimetype, detectType(req.file.originalname), ownerId]
     );
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -397,7 +407,8 @@ app.get('/api/documents', authMiddleware, async (req, res) => {
   try {
     let sql = 'SELECT * FROM documents WHERE 1=1';
     const params = [];
-    if (req.biller_id) { params.push(req.biller_id); sql += ` AND biller_id = $${params.length}::uuid`; }
+    const bid = filterBillerId(req);
+    if (bid) { params.push(bid); sql += ` AND biller_id = $${params.length}::uuid`; }
     sql += ' ORDER BY uploaded_at DESC';
     const { rows } = await pool.query(sql, params);
     res.json(rows);
@@ -410,7 +421,8 @@ app.get('/api/documents/:id', authMiddleware, async (req, res) => {
   try {
     let sql = 'SELECT * FROM documents WHERE id = $1';
     const params = [req.params.id];
-    if (req.biller_id) { params.push(req.biller_id); sql += ` AND biller_id = $${params.length}::uuid`; }
+    const bid = filterBillerId(req);
+    if (bid) { params.push(bid); sql += ` AND biller_id = $${params.length}::uuid`; }
     const { rows } = await pool.query(sql, params);
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(rows[0]);
@@ -423,7 +435,8 @@ app.delete('/api/documents/:id', authMiddleware, async (req, res) => {
   try {
     let sql = 'DELETE FROM documents WHERE id = $1';
     const params = [req.params.id];
-    if (req.biller_id) { params.push(req.biller_id); sql += ` AND biller_id = $${params.length}::uuid`; }
+    const bid = filterBillerId(req);
+    if (bid) { params.push(bid); sql += ` AND biller_id = $${params.length}::uuid`; }
     const { rowCount } = await pool.query(sql, params);
     if (!rowCount) return res.status(404).json({ error: 'Not found' });
     res.json({ message: 'Deleted' });
