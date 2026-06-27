@@ -1,49 +1,37 @@
-<<<<<<< HEAD
 /* App.css — legacy styles kept for backward compatibility */
 /* All new styles use Tailwind CSS via index.css */
-=======
+
 *, *::before, *::after {
   box-sizing: border-box;
 }
 
 :root {
-  /* Colores institucionales Facturatec */
-  --primary-dark: #062A51;     /* Azul oscuro institucional */
-  --primary: #2563eb;          /* Azul de acento */
+  --primary-dark: #062A51;
+  --primary: #2563eb;
   --primary-light: #3b82f6;
-  --secondary: #BE3B5E;        /* Acento rojo/rosa */
+  --secondary: #BE3B5E;
   --success: #10b981;
   --danger: #ef4444;
   --warning: #f59e0b;
-  
-  /* Colores base - tonos grises claros para fondos */
-  --background: #f4f6f9;       /* Fondo gris claro principal (#f4f6f9 del README) */
+  --background: #f4f6f9;
   --background-dark: #e2e8f0;
   --surface: #ffffff;
   --surface-dark: #f1f5f9;
   --border: #e2e8f0;
   --border-dark: #cbd5e1;
-  
-  /* Texto */
-  --text-primary: #0f172a;      /* Texto oscuro legible */
+  --text-primary: #0f172a;
   --text-secondary: #64748b;
   --text-muted: #94a3b8;
   --text-inverse: #ffffff;
-  
-  /* Sombras */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  
-  /* Radio de bordes */
   --radius-sm: 0.375rem;
   --radius: 0.5rem;
   --radius-md: 0.75rem;
   --radius-lg: 1rem;
   --radius-xl: 1.5rem;
-  
-  /* Transiciones */
   --transition: all 0.2s ease-in-out;
 }
 
@@ -52,8 +40,8 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: var(--gray-50);
-  color: var(--gray-800);
+  background-color: var(--background);
+  color: var(--text-primary);
   line-height: 1.5;
 }
 
@@ -92,10 +80,9 @@ input:focus, select:focus, textarea:focus {
   outline-offset: 2px;
 }
 
-/* Utility classes */
 .card {
-  background: var(--white);
-  border: 1px solid var(--gray-200);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 1.5rem;
   box-shadow: var(--shadow);
@@ -121,7 +108,7 @@ input:focus, select:focus, textarea:focus {
 
 .btn-primary {
   background-color: var(--primary);
-  color: var(--white);
+  color: var(--text-inverse);
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -129,18 +116,18 @@ input:focus, select:focus, textarea:focus {
 }
 
 .btn-secondary {
-  background-color: var(--gray-100);
-  color: var(--gray-700);
-  border: 1px solid var(--gray-300);
+  background-color: var(--surface-dark);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background-color: var(--gray-200);
+  background-color: var(--border);
 }
 
 .btn-danger {
   background-color: var(--danger);
-  color: var(--white);
+  color: var(--text-inverse);
 }
 
 .btn-danger:hover:not(:disabled) {
@@ -180,7 +167,7 @@ input:focus, select:focus, textarea:focus {
   display: inline-block;
   width: 1.5rem;
   height: 1.5rem;
-  border: 2px solid var(--gray-300);
+  border: 2px solid var(--border);
   border-top-color: var(--primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
@@ -199,12 +186,11 @@ input:focus, select:focus, textarea:focus {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Table improvements */
 .table-container {
   overflow-x: auto;
   border-radius: var(--radius-md);
-  border: 1px solid var(--gray-200);
-  background: var(--white);
+  border: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .table {
@@ -218,24 +204,23 @@ input:focus, select:focus, textarea:focus {
   text-align: left;
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--gray-600);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border-bottom: 1px solid var(--gray-200);
-  background-color: var(--gray-50);
+  border-bottom: 1px solid var(--border);
+  background-color: var(--surface-dark);
 }
 
 .table td {
   padding: 0.75rem 1rem;
   font-size: 0.875rem;
-  border-bottom: 1px solid var(--gray-100);
+  border-bottom: 1px solid var(--border);
 }
 
 .table tbody tr:hover {
-  background-color: var(--gray-50);
+  background-color: var(--surface-dark);
 }
 
 .table tbody tr:last-child td {
   border-bottom: none;
 }
->>>>>>> 1d55fded9ff5433180cb1a5257998ca0df7ef5ec
