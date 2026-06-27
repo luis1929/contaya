@@ -31,6 +31,17 @@ app.use((req, res) => {
   res.sendFile(path.join(frontendDist, 'index.html'));
 });
 
+app.use((err, req, res, next) => {
+  console.error('[Error Handler]', err.message || err);
+  if (err.message && err.message.startsWith('Tipo no soportado')) {
+    return res.status(400).json({ error: err.message });
+  }
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({ error: 'Archivo demasiado grande. Máximo 20MB' });
+  }
+  res.status(500).json({ error: err.message || 'Error interno del servidor' });
+});
+
 app.listen(PORT, () => {
   console.log('Contaya backend running on port ' + PORT);
 });

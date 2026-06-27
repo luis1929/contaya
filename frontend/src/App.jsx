@@ -20,10 +20,14 @@ import BillerDeclarations from './pages/biller/Declarations';
 
 import CompanyPage from './pages/CompanyPage';
 
+import ToastContainer from './components/ui/Toast';
+
 import './App.css';
 
 function App() {
   return (
+    <>
+    <ToastContainer />
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Landing />} />
@@ -50,6 +54,7 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
+    </>
   );
 }
 

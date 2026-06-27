@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const ctrl = require('../controllers/healthController');
 
-router.get('/', (req, res) => {
-  res.json({ status: 'ok', message: 'Contaya API running' });
-});
+router.get('/', ctrl.check);
 
 module.exports = router;
