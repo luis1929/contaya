@@ -2,16 +2,18 @@ import axios from 'axios';
 
 const client = axios.create({ baseURL: '/api' });
 
-function getToken() {
-  if (localStorage.getItem('impersonating')) {
-    return localStorage.getItem('impersonate_token');
+client.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+    
+    // Add impersonation headers
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    if (user.impersonating && user.biller_id) {
+      config.headers['X-Impersonation-Id'] = user.biller_id;
+      config.headers['X-Impersonator-Id'] = user.impersonatedBy || user.impersonated_by;
+    }
   }
-  return localStorage.getItem('token');
-}
-
-client.interceptors.request.use(config => {
-  const token = getToken();
-  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
@@ -83,6 +85,7 @@ export const api = {
     const { data } = await client.delete(`/documents/${id}`);
     return data;
   },
+<<<<<<< HEAD
   downloadDocument: async (id) => {
     const { data } = await client.get(`/documents/${id}/download`, { responseType: 'blob' });
     return data;
@@ -119,16 +122,49 @@ export const api = {
   },
 
   // Invoices
+=======
+>>>>>>> 1d55fded9ff5433180cb1a5257998ca0df7ef5ec
   getInvoices: async (params = {}) => {
     const { data } = await client.get('/invoices', { params });
     return data;
   },
-  getInvoiceSummary: async () => {
-    const { data } = await client.get('/invoices/summary');
+  getInvoiceSummary: async (params = {}) => {
+    const { data } = await client.get('/invoices/summary', { params });
     return data;
   },
+<<<<<<< HEAD
 
   // Billers
+=======
+  register: async (name, email, password) => {
+    const { data } = await client.post('/auth/register', { name, email, password });
+    return data;
+  },
+  login: async (email, password) => {
+    const { data } = await client.post('/auth/login', { email, password });
+    return data;
+  },
+  getMe: async () => {
+    const { data } = await client.get('/auth/me');
+    return data;
+  },
+  getCompany: async () => {
+    const { data } = await client.get('/company');
+    return data;
+  },
+  updateCompany: async (company) => {
+    const { data } = await client.put('/company', company);
+    return data;
+  },
+  getClients: async () => {
+    const { data } = await client.get('/clients');
+    return data;
+  },
+  changePassword: async (currentPassword, newPassword) => {
+    const { data } = await client.post('/auth/change-password', { currentPassword, newPassword });
+    return data;
+  },
+>>>>>>> 1d55fded9ff5433180cb1a5257998ca0df7ef5ec
   getBillers: async () => {
     const { data } = await client.get('/billers');
     return data;
@@ -137,6 +173,7 @@ export const api = {
     const { data } = await client.put(`/billers/${id}`, body);
     return data;
   },
+<<<<<<< HEAD
 
   // Admin
   getAdminDashboard: async () => {
@@ -169,6 +206,66 @@ export const api = {
   },
   updateSetting: async (key, value) => {
     const { data } = await client.put('/admin/settings', { key, value });
+=======
+  updateBiller: async (id, payload) => {
+    const { data } = await client.put(`/billers/${id}`, payload);
+    return data;
+  },
+  deleteBiller: async (id) => {
+    const { data } = await client.delete(`/billers/${id}`);
+    return data;
+  },
+  createBiller: async (payload) => {
+    const { data } = await client.post('/billers', payload);
+    return data;
+  },
+  createClient: async (payload) => {
+    const { data } = await client.post('/clients', payload);
+    return data;
+  },
+  updateClient: async (id, payload) => {
+    const { data } = await client.put(`/clients/${id}`, payload);
+    return data;
+  },
+  deleteClient: async (id) => {
+    const { data } = await client.delete(`/clients/${id}`);
+    return data;
+  },
+  createInvoice: async (payload) => {
+    const { data } = await client.post('/invoices', payload);
+    return data;
+  },
+  updateInvoice: async (id, payload) => {
+    const { data } = await client.put(`/invoices/${id}`, payload);
+    return data;
+  },
+  deleteInvoice: async (id) => {
+    const { data } = await client.delete(`/invoices/${id}`);
+    return data;
+  },
+  getDeclarations: async (params = {}) => {
+    const { data } = await client.get('/declarations', { params });
+    return data;
+  },
+  getDeclarationsSummary: async (params = {}) => {
+    const { data } = await client.get('/declarations/summary', { params });
+    return data;
+  },
+  createDeclaration: async (payload) => {
+    const { data } = await client.post('/declarations', payload);
+    return data;
+  },
+  updateDeclaration: async (id, payload) => {
+    const { data } = await client.put(`/declarations/${id}`, payload);
+    return data;
+  },
+  deleteDeclaration: async (id) => {
+    const { data } = await client.delete(`/declarations/${id}`);
+    return data;
+  },
+  resetPassword: async (email, password) => {
+    const { data } = await client.post('/auth/reset-password', { email, password });
+>>>>>>> 1d55fded9ff5433180cb1a5257998ca0df7ef5ec
     return data;
   },
 };

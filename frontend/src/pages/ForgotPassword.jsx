@@ -1,39 +1,41 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { api } from '../services/api';
 
 const s = {
   section: {
     minHeight: '100vh',
-    background: 'linear-gradient(135deg, #1e3a8a, #2563eb)',
+    background: '#f8f9fc',
     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem',
   },
   card: {
-    background: '#fff', borderRadius: '12px', padding: '3rem',
-    width: '100%', maxWidth: '440px', boxShadow: '0 4px 24px rgba(0,0,0,0.1)',
+    background: '#fff',
+    border: '1px solid #e8ecf0',
+    borderRadius: '16px', padding: '3rem',
+    width: '100%', maxWidth: '480px',
   },
   title: {
-    fontSize: 'clamp(1.5rem, 4vw, 1.75rem)',
-    fontWeight: '700', color: '#111827', marginBottom: '0.25rem', textAlign: 'center',
+    fontSize: 'clamp(1.5rem, 4vw, 2rem)',
+    fontWeight: '800', color: '#062A51', marginBottom: '0.5rem', textAlign: 'center',
   },
   subtitle: {
-    color: '#6b7280', textAlign: 'center', marginBottom: '2rem', fontSize: '0.95rem',
+    color: '#7a8a9f', textAlign: 'center', marginBottom: '2rem', fontSize: '0.95rem',
   },
   field: { marginBottom: '1.25rem' },
-  label: { display: 'block', color: '#374151', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.375rem' },
+  label: { display: 'block', color: '#062A51', fontSize: '0.875rem', fontWeight: '600', marginBottom: '0.375rem' },
   input: {
     width: '100%', padding: '0.75rem 1rem', background: '#fff',
-    border: '1px solid #d1d5db', borderRadius: '8px', color: '#111827',
+    border: '1px solid #d0d5dd', borderRadius: '10px', color: '#062A51',
     fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box',
   },
   btn: {
-    width: '100%', padding: '0.875rem', background: '#2563eb',
-    color: '#fff', border: 'none', borderRadius: '8px',
-    fontSize: '1rem', fontWeight: '600', cursor: 'pointer',
+    width: '100%', padding: '0.875rem', background: '#BE3B5E', color: '#fff',
+    border: 'none', borderRadius: '12px', fontSize: '1rem', fontWeight: '700', cursor: 'pointer',
   },
-  back: { textAlign: 'center', marginTop: '1.5rem', color: '#6b7280', fontSize: '0.9rem' },
-  backA: { color: '#2563eb', textDecoration: 'none', fontWeight: '500' },
-  success: { color: '#16a34a', fontSize: '0.875rem', textAlign: 'center', marginBottom: '1rem' },
-  error: { color: '#dc2626', fontSize: '0.875rem', textAlign: 'center', marginBottom: '1rem' },
+  back: { textAlign: 'center', marginTop: '1.5rem', color: '#7a8a9f', fontSize: '0.9rem' },
+  backA: { color: '#BE3B5E', textDecoration: 'none', fontWeight: '600' },
+  success: { color: '#0a8f4c', fontSize: '0.875rem', textAlign: 'center', marginBottom: '1rem' },
+  error: { color: '#e74c3c', fontSize: '0.875rem', textAlign: 'center', marginBottom: '1rem' },
 };
 
 export default function ForgotPassword() {
@@ -50,17 +52,11 @@ export default function ForgotPassword() {
     if (password !== confirm) return setError('Las contraseñas no coinciden');
     if (password.length < 6) return setError('La contraseña debe tener al menos 6 caracteres');
     try {
-      const res = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) return setError(data.error);
+      await api.resetPassword(email, password);
       setSuccess('Contraseña restablecida correctamente. Redirigiendo...');
       setTimeout(() => window.location.href = '/login', 2000);
-    } catch {
-      setError('Error de conexión');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error de conexión');
     }
   }
 

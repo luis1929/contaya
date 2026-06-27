@@ -101,6 +101,88 @@ router.get('/clients-by-biller', async (req, res) => {
   }
 });
 
+router.post('/', async (req, res) => {
+  try {
+    const { client_name, client_id, ncf, doc_type, total, paid, status, items, raw_data } = req.body;
+    if (!client_name) return res.status(400).json({ error: 'client_name es requerido' });
+    const bid = req.isAdmin ? (req.body.biller_id || req.billerId) : req.billerId;
+    if (!bid) return res.status(400).json({ error: 'biller_id es requerido' });
+
+    const { rows } = await pool.query(
+      `INSERT INTO invoices (biller_id, client_id, client_name, ncf, doc_type, total, paid, status, raw_data)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [bid, client_id || null, client_name, ncf || null, doc_type || null, total || 0, paid || false, status || 'pending', raw_data ? JSON.stringify(raw_data) : null]
+    );
+
+    if (items && items.length) {
+      for (const item of items) {
+        await pool.query(
+          `INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, amount)
+           VALUES ($1,$2,$3,$4,$5)`,
+          [rows[0].id, item.description, item.quantity || 1, item.unit_price || 0, item.amount || 0]
+        );
+      }
+    }
+
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/:id', async (req, res) => {
+  try {
+    const { client_name, client_id, ncf, doc_type, total, paid, status, items, raw_data } = req.body;
+    let sql = `UPDATE invoices SET client_name=$1, client_id=$2, ncf=$3, doc_type=$4, total=$5, paid=$6, status=$7, raw_data=$8, updated_at=NOW() WHERE id=$9`;
+    const params = [
+      client_name, client_id || null, ncf || null, doc_type || null, total || 0,
+      paid || false, status || 'pending', raw_data ? JSON.stringify(raw_data) : null, req.params.id
+    ];
+
+    if (!req.isAdmin) {
+      sql += ` AND biller_id = $${params.length + 1}::uuid`;
+      params.push(req.billerId);
+    }
+
+    const { rowCount } = await pool.query(sql, params);
+    if (!rowCount) return res.status(404).json({ error: 'Not found' });
+
+    if (items) {
+      await pool.query('DELETE FROM invoice_items WHERE invoice_id = $1', [req.params.id]);
+      for (const item of items) {
+        await pool.query(
+          `INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, amount)
+           VALUES ($1,$2,$3,$4,$5)`,
+          [req.params.id, item.description, item.quantity || 1, item.unit_price || 0, item.amount || 0]
+        );
+      }
+    }
+
+    const { rows } = await pool.query('SELECT * FROM invoices WHERE id = $1', [req.params.id]);
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/:id', async (req, res) => {
+  try {
+    let sql = 'DELETE FROM invoices WHERE id = $1';
+    const params = [req.params.id];
+
+    if (!req.isAdmin) {
+      sql += ` AND biller_id = $${params.length + 1}::uuid`;
+      params.push(req.billerId);
+    }
+
+    const { rowCount } = await pool.query(sql, params);
+    if (!rowCount) return res.status(404).json({ error: 'Not found' });
+    res.json({ message: 'Deleted' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/consolidated', async (req, res) => {
   try {
     let billerId = req.query.biller_id;
