@@ -1,64 +1,43 @@
 import { useNavigate } from 'react-router-dom';
-
-const s = {
-  banner: {
-    background: 'var(--primary-dark)', 
-    color: 'var(--white)', 
-    padding: '0.5rem 2rem',
-    display: 'flex', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    gap: '1rem',
-    fontSize: '0.85rem', 
-    fontFamily: 'system-ui, sans-serif',
-  },
-  name: { 
-    fontWeight: '700',
-    color: 'var(--white)',
-  },
-  btn: {
-    background: 'rgba(255,255,255,0.2)', 
-    border: '1px solid rgba(255,255,255,0.4)',
-    color: 'var(--white)', 
-    padding: '0.3rem 0.8rem', 
-    borderRadius: 'var(--radius-sm)',
-    cursor: 'pointer', 
-    fontSize: '0.8rem', 
-    fontWeight: '600',
-    transition: 'background .2s',
-  },
-  btnHover: {
-    background: 'rgba(255,255,255,0.3)',
-  },
-};
+import { useAuth } from '../hooks/useAuth';
 
 export default function ImpersonateBanner() {
   const navigate = useNavigate();
-  
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  if (!user.impersonating) return null;
+  const { user } = useAuth();
 
-  const impersonatorName = user.name || 'Usuario';
+  if (!user?.impersonating) return null;
 
   function handleExit() {
     const adminToken = localStorage.getItem('admin_token');
+    const adminUserRaw = localStorage.getItem('admin_user');
     if (adminToken) {
       localStorage.setItem('token', adminToken);
       localStorage.removeItem('admin_token');
-      localStorage.setItem('user', JSON.stringify({ role: 'admin' }));
+      localStorage.removeItem('impersonating');
+      const adminUser = adminUserRaw ? JSON.parse(adminUserRaw) : { role: 'admin' };
+      localStorage.setItem('user', JSON.stringify(adminUser));
       window.dispatchEvent(new Event('auth-change'));
+      navigate('/admin');
+    } else {
+      localStorage.clear();
+      window.location.href = '/login';
     }
-    navigate('/admin');
   }
 
   return (
-    <div style={s.banner}>
-      <span>Viendo como <span style={s.name}>{impersonatorName}</span></span>
-      <button 
-        style={s.btn}
+    <div className="flex items-center justify-center gap-3 px-6 py-2.5 bg-amber-500 text-white text-sm">
+      <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span>
+        Estás viendo como <strong>{user.name || 'Cliente'}</strong>
+        {user.impersonatedByName && (
+          <span className="opacity-80"> · suplantado por {user.impersonatedByName}</span>
+        )}
+      </span>
+      <button
         onClick={handleExit}
-        onMouseEnter={e => e.currentTarget.style.background = s.btnHover.background}
-        onMouseLeave={e => e.currentTarget.style.background = s.btn.background}
+        className="ml-2 rounded-md bg-white/20 px-3 py-1 text-xs font-semibold hover:bg-white/30 transition-colors"
       >
         Volver al Admin
       </button>

@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+import SuplantarBiller from '../SuplantarBiller';
 
 const adminLinks = [
   { to: '/admin', label: 'Dashboard', icon: '📊' },
@@ -64,6 +65,12 @@ export default function Sidebar({ isAdmin, collapsed, onToggle }) {
             {!collapsed && <span>{link.label}</span>}
           </NavLink>
         ))}
+
+        {isAdmin && (
+          <div className="pt-2 border-t border-gray-100 mt-2">
+            <SuplantarBiller collapsed={collapsed} />
+          </div>
+        )}
       </nav>
 
       <div className={`p-4 border-t border-gray-100 ${collapsed ? 'text-center' : ''}`}>

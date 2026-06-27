@@ -2,14 +2,14 @@ import { useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import ImpersonateBanner from '../ImpersonateBanner';
+import { useAuth } from '../../hooks/useAuth';
 
 export default function AdminLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
+  const { user, token, isAuthenticated } = useAuth();
 
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const token = localStorage.getItem('token');
-  if (!token || user.role !== 'admin') {
+  if (!token || user?.role !== 'admin') {
     navigate('/login');
     return null;
   }
@@ -25,10 +25,10 @@ export default function AdminLayout() {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-600">
-              {user.name || 'Admin'}
+              {user?.name || 'Admin'}
             </span>
             <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">
-              {user.name?.[0] || 'A'}
+              {user?.name?.[0] || 'A'}
             </div>
           </div>
         </header>
