@@ -24,36 +24,40 @@ module.exports = {
   login: asyncHandler(async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return badRequest(res, 'Faltan campos requeridos');
+    if (email.includes('@')) return module.exports.loginAdmin(req, res);
+    return module.exports.loginCliente(req, res);
+  }),
 
-    if (email.includes('@')) {
-      const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-      if (rows.length) {
-        const match = await bcrypt.compare(password, rows[0].password);
-        if (match) {
-          const token = jwt.sign({ id: rows[0].id, email: rows[0].email, role: 'admin' }, JWT_SECRET, { expiresIn: '7d' });
-          const { password: _, ...user } = rows[0];
-          return success(res, { user: { ...user, role: 'admin' }, token });
-        }
-      }
-    }
+  loginAdmin: asyncHandler(async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) return badRequest(res, 'Faltan campos requeridos');
+    const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (!rows.length) return unauthorized(res, 'Credenciales inválidas');
+    const match = await bcrypt.compare(password, rows[0].password);
+    if (!match) return unauthorized(res, 'Credenciales inválidas');
+    const token = jwt.sign({ id: rows[0].id, email: rows[0].email, role: 'admin' }, JWT_SECRET, { expiresIn: '7d' });
+    const { password: _, ...user } = rows[0];
+    success(res, { user: { ...user, role: 'admin' }, token });
+  }),
 
-    let { rows: billers } = await pool.query('SELECT * FROM billers WHERE document_number = $1', [email]);
-    if (!billers.length && !email.includes('@')) {
-      billers = (await pool.query('SELECT * FROM billers WHERE document_number LIKE $1', [email + '-%'])).rows;
+  loginCliente: asyncHandler(async (req, res) => {
+    const { nit, password } = req.body;
+    if (!nit || !password) return badRequest(res, 'NIT y contraseña requeridos');
+    let { rows: billers } = await pool.query('SELECT * FROM billers WHERE document_number = $1', [nit]);
+    if (!billers.length) {
+      billers = (await pool.query('SELECT * FROM billers WHERE document_number LIKE $1', [nit + '-%'])).rows;
     }
-    if (billers.length) {
-      const match = await bcrypt.compare(password, billers[0].password || '');
-      if (match && billers[0].is_active !== false) {
-        const token = jwt.sign({
-          biller_id: billers[0].id, name: billers[0].name,
-          document_number: billers[0].document_number, role: 'biller'
-        }, JWT_SECRET, { expiresIn: '7d' });
-        return success(res, {
-          user: { id: billers[0].id, name: billers[0].name, role: 'biller' }, token
-        });
-      }
-    }
-    unauthorized(res, 'Credenciales inválidas');
+    if (!billers.length) return unauthorized(res, 'Credenciales inválidas');
+    const match = await bcrypt.compare(password, billers[0].password || '');
+    if (!match) return unauthorized(res, 'Credenciales inválidas');
+    if (billers[0].is_active === false) return forbidden(res, 'Cuenta desactivada. Contacte al administrador.');
+    const token = jwt.sign({
+      biller_id: billers[0].id, name: billers[0].name,
+      document_number: billers[0].document_number, role: 'biller'
+    }, JWT_SECRET, { expiresIn: '7d' });
+    success(res, {
+      user: { id: billers[0].id, name: billers[0].name, nit: billers[0].document_number, role: 'biller' }, token
+    });
   }),
 
   resetPassword: asyncHandler(async (req, res) => {
@@ -73,6 +77,21 @@ module.exports = {
     const { rows } = await pool.query('SELECT id, name, email, created_at FROM users WHERE id = $1', [req.user.id]);
     if (!rows.length) return notFound(res, 'User not found');
     success(res, { ...rows[0], role: 'admin' });
+  }),
+
+  changePasswordCliente: asyncHandler(async (req, res) => {
+    const { currentPassword, newPassword, nit } = req.body;
+    if (!currentPassword || !newPassword) return badRequest(res, 'Faltan campos requeridos');
+    if (newPassword.length < 6) return badRequest(res, 'La nueva contraseña debe tener al menos 6 caracteres');
+    const docNumber = nit || req.user?.document_number;
+    if (!docNumber) return badRequest(res, 'NIT requerido');
+    const { rows } = await pool.query('SELECT password FROM billers WHERE document_number = $1', [docNumber]);
+    if (!rows.length) return notFound(res, 'Usuario no encontrado');
+    const match = await bcrypt.compare(currentPassword, rows[0].password || '');
+    if (!match) return unauthorized(res, 'La contraseña actual es incorrecta');
+    const hash = await bcrypt.hash(newPassword, 10);
+    await pool.query('UPDATE billers SET password = $1, updated_at = NOW() WHERE document_number = $2', [hash, docNumber]);
+    success(res, { message: 'Contraseña actualizada correctamente' });
   }),
 
   changePassword: asyncHandler(async (req, res) => {
