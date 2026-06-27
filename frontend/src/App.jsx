@@ -1,28 +1,48 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+
 import Landing from './pages/Landing';
-import Dashboard from './pages/Dashboard';
-import Facturas from './pages/Facturas';
-import Upload from './pages/Upload';
-import Declarations from './pages/Declarations';
-import Register from './pages/Register';
-import Login from './pages/Login';
-import ForgotPassword from './pages/ForgotPassword';
-import Clients from './pages/Clients';
-import './App.css';
+import Login from './pages/auth/Login';
+import Register from './pages/auth/Register';
+import ForgotPassword from './pages/auth/ForgotPassword';
+
+import AdminLayout from './components/layout/AdminLayout';
+import AdminDashboard from './pages/admin/Dashboard';
+import AdminBillers from './pages/admin/Billers';
+import AuditLog from './pages/admin/AuditLog';
+import AdminSettings from './pages/admin/Settings';
+
+import BillerLayout from './components/layout/BillerLayout';
+import BillerDashboard from './pages/biller/Dashboard';
+import BillerFacturas from './pages/biller/Facturas';
+import BillerClients from './pages/biller/Clients';
+import BillerUpload from './pages/biller/Upload';
+import BillerDeclarations from './pages/biller/Declarations';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Landing />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/facturas" element={<Facturas />} />
-        <Route path="/upload" element={<Upload />} />
-        <Route path="/declarations" element={<Declarations />} />
-        <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/clientes" element={<Clients />} />
+
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminDashboard />} />
+          <Route path="billers" element={<AdminBillers />} />
+          <Route path="audit-log" element={<AuditLog />} />
+          <Route path="settings" element={<AdminSettings />} />
+        </Route>
+
+        <Route path="/" element={<BillerLayout />}>
+          <Route path="dashboard" element={<BillerDashboard />} />
+          <Route path="facturas" element={<BillerFacturas />} />
+          <Route path="clientes" element={<BillerClients />} />
+          <Route path="upload" element={<BillerUpload />} />
+          <Route path="declarations" element={<BillerDeclarations />} />
+        </Route>
+
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

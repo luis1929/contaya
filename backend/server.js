@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -18,6 +19,7 @@ app.use('/api/clients', require('./routes/clients'));
 app.use('/api/billers', require('./routes/billers'));
 app.use('/api/documents', require('./routes/documents'));
 app.use('/api/health', require('./routes/health'));
+app.use('/api/admin', require('./routes/admin'));
 
 app.listen(PORT, () => {
   console.log('Contaya backend running on port ' + PORT);
