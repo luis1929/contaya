@@ -40,15 +40,9 @@ export default function AdminDashboard() {
         <p className="text-gray-500 mt-1">Resumen general del sistema</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <StatsCard label="Facturadores" value={stats.billers.total} icon="👥" color="primary" />
         <StatsCard label="Activos" value={stats.billers.active} icon="✅" color="success" />
-        <StatsCard label="Facturas" value={stats.invoices.total} icon="📄" color="warning" />
-        <StatsCard label="Total Facturado" value={stats.invoices.total_sum} icon="💰" color="primary" format="currency" />
-        <StatsCard label="IVA Total" value={stats.invoices.total_iva} icon="🧾" color="info" format="currency" />
-        <StatsCard label="Documentos" value={stats.documents.total} icon="📁" color="info" />
-        <StatsCard label="Pendientes" value={stats.documents.pending} icon="⏳" color="warning" />
-        <StatsCard label="Usuarios" value={stats.users.total} icon="👤" color="gray" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

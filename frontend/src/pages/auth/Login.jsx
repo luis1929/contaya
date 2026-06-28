@@ -66,7 +66,7 @@ export default function Login() {
   const isAdmin = tab === 'admin';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#062A51] to-[#2563eb] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#062A51] to-[#2563eb] flex items-center justify-center p-3 sm:p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-[fadeIn_0.5s_ease-out]">
         {/* Tabs */}
         <div className="flex border-b border-gray-200">
@@ -74,7 +74,7 @@ export default function Login() {
             <button
               key={r.key}
               onClick={() => { setTab(r.key); setError(''); }}
-              className={`flex-1 px-4 py-4 text-center transition-all ${
+              className={`flex-1 px-2 sm:px-4 py-3 sm:py-4 text-center transition-all ${
                 tab === r.key
                   ? 'bg-white border-b-2 border-blue-600'
                   : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
@@ -83,15 +83,15 @@ export default function Login() {
               <svg className={`w-5 h-5 mx-auto mb-1 ${tab === r.key ? 'text-blue-600' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d={r.icon} />
               </svg>
-              <span className={`text-sm font-semibold ${tab === r.key ? 'text-blue-600' : 'text-gray-500'}`}>
+              <span className={`text-xs sm:text-sm font-semibold ${tab === r.key ? 'text-blue-600' : 'text-gray-500'}`}>
                 {r.label}
               </span>
-              <p className="text-[10px] text-gray-400 mt-0.5">{r.subtitle}</p>
+              <p className="hidden sm:block text-[10px] text-gray-400 mt-0.5">{r.subtitle}</p>
             </button>
           ))}
         </div>
 
-        <div className="p-8">
+        <div className="p-4 sm:p-6 md:p-8">
           {/* Role description */}
           <div className="mb-6 p-3 bg-blue-50 border border-blue-100 rounded-lg">
             <p className="text-xs text-blue-700 leading-relaxed">
@@ -201,12 +201,7 @@ export default function Login() {
             </form>
           )}
 
-          {isAdmin && (
-            <p className="text-center mt-6 text-sm text-gray-500">
-              ¿No tienes cuenta?{' '}
-              <Link to="/register" className="text-blue-600 hover:text-blue-700 font-semibold">Regístrate</Link>
-            </p>
-          )}
+
         </div>
       </div>
     </div>

@@ -2,7 +2,7 @@ const bcrypt = require('bcryptjs');
 const { spawn } = require('child_process');
 const path = require('path');
 const pool = require('../db/pool');
-const { success, created, notFound, error } = require('../lib/response');
+const { success, created, badRequest, notFound, error } = require('../lib/response');
 const asyncHandler = require('../lib/asyncHandler');
 
 function launchScraper(billerId, user, pass) {
@@ -64,5 +64,35 @@ module.exports = {
     const { rowCount } = await pool.query('DELETE FROM billers WHERE id = $1', [req.params.id]);
     if (!rowCount) return notFound(res);
     success(res, { message: 'Deleted' });
+  }),
+
+  sync: asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    const { rows } = await pool.query('SELECT id FROM billers WHERE id = $1', [id]);
+    if (!rows.length) return notFound(res);
+
+    const creds = await pool.query(
+      `SELECT username_encrypted, password_encrypted
+       FROM biller_credentials
+       WHERE biller_id = $1 AND is_configured = true`,
+      [id]
+    );
+    if (!creds.rows.length) {
+      return badRequest(res, 'No hay credenciales de FacturaTech configuradas');
+    }
+
+    const crypto = require('../services/cryptoService');
+    const user = crypto.decrypt(creds.rows[0].username_encrypted);
+    const pass = crypto.decrypt(creds.rows[0].password_encrypted);
+
+    await pool.query(
+      `UPDATE billers SET scrape_status = 'running', scrape_last_run = NOW() WHERE id = $1`,
+      [id]
+    );
+
+    launchScraper(id, user, pass);
+
+    success(res, { message: 'Sincronización iniciada' });
   }),
 };

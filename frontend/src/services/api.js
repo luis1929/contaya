@@ -3,17 +3,12 @@ import axios from 'axios';
 const client = axios.create({ baseURL: '/api' });
 
 client.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    if (user.impersonating && user.biller_id) {
-      config.headers['X-Impersonation-Id'] = user.biller_id;
-      config.headers['X-Impersonator-Id'] = user.impersonatedBy || user.impersonated_by;
-    }
+  const impToken = localStorage.getItem('impersonate_token');
+  if (impToken) {
+    config.headers.Authorization = `Bearer ${impToken}`;
   } else {
-    const impToken = localStorage.getItem('impersonate_token');
-    if (impToken) config.headers.Authorization = `Bearer ${impToken}`;
+    const token = localStorage.getItem('token');
+    if (token) config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
@@ -128,6 +123,10 @@ export const api = {
   },
 
   // Invoices
+  getInvoice: async (id) => {
+    const { data } = await client.get(`/invoices/${id}`);
+    return data;
+  },
   getInvoices: async (params = {}) => {
     const { data } = await client.get('/invoices', { params });
     return data;
@@ -184,6 +183,10 @@ export const api = {
     const { data } = await client.delete(`/billers/${id}`);
     return data;
   },
+  syncBiller: async (id) => {
+    const { data } = await client.post(`/billers/${id}/sync`);
+    return data;
+  },
 
   // Company
   getCompany: async () => {
@@ -238,12 +241,72 @@ export const api = {
     const { data } = await client.get('/admin/audit-log', { params });
     return data;
   },
+  getAuditStats: async () => {
+    const { data } = await client.get('/admin/audit-stats');
+    return data;
+  },
   getSettings: async () => {
     const { data } = await client.get('/admin/settings');
     return data;
   },
   updateSetting: async (key, value) => {
     const { data } = await client.put('/admin/settings', { key, value });
+    return data;
+  },
+
+  getCredentialsStatus: async () => {
+    const { data } = await client.get('/billers/credentials/status');
+    return data;
+  },
+  saveCredentials: async (body) => {
+    const { data } = await client.post('/billers/credentials', body);
+    return data;
+  },
+  deleteCredentials: async () => {
+    const { data } = await client.delete('/billers/credentials');
+    return data;
+  },
+  getAdminCredentialsList: async () => {
+    const { data } = await client.get('/billers/credentials/admin-list');
+    return data;
+  },
+
+  uploadRut: async (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    const { data } = await client.post('/clients/upload-rut', form);
+    return data;
+  },
+
+  getItems: async (params = {}) => {
+    const { data } = await client.get('/items', { params });
+    return data;
+  },
+  createItem: async (body) => {
+    const { data } = await client.post('/items', body);
+    return data;
+  },
+  updateItem: async (id, body) => {
+    const { data } = await client.put(`/items/${id}`, body);
+    return data;
+  },
+  deleteItem: async (id) => {
+    const { data } = await client.delete(`/items/${id}`);
+    return data;
+  },
+  previewItems: async (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    const { data } = await client.post('/items/preview', form);
+    return data;
+  },
+  confirmItems: async (rows) => {
+    const { data } = await client.post('/items/confirm', { rows });
+    return data;
+  },
+
+  emitirInvoice: async (payload) => {
+    const { data } = await client.post('/invoices/emitir', payload);
     return data;
   },
 };

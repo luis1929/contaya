@@ -14,6 +14,7 @@ export default function ImpersonateBanner() {
       localStorage.setItem('token', adminToken);
       localStorage.removeItem('admin_token');
       localStorage.removeItem('impersonating');
+      localStorage.removeItem('impersonate_token');
       const adminUser = adminUserRaw ? JSON.parse(adminUserRaw) : { role: 'admin' };
       localStorage.setItem('user', JSON.stringify(adminUser));
       window.dispatchEvent(new Event('auth-change'));

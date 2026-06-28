@@ -37,6 +37,8 @@ export default function SuplantarBiller({ collapsed }) {
   const handleSelect = async (biller) => {
     try {
       const data = await api.impersonate(biller.id);
+      localStorage.removeItem('impersonate_token');
+      localStorage.removeItem('impersonating');
       localStorage.setItem('admin_token', localStorage.getItem('token'));
       const adminUser = JSON.parse(localStorage.getItem('user') || '{}');
       localStorage.setItem('token', data.token);

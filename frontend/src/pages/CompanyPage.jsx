@@ -156,7 +156,6 @@ export default function CompanyPage() {
       <div style={s.top}>
         <a href="/" style={s.logo}>Contaya</a>
         <div>
-          <a href="/dashboard" style={s.topLink}>Dashboard</a>
           <a href="/facturas" style={s.topLink}>Facturas</a>
           <button style={s.logout} onClick={handleLogout}>Cerrar sesión</button>
         </div>

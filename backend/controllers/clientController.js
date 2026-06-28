@@ -1,6 +1,8 @@
 const pool = require('../db/pool');
 const { success, created, badRequest, notFound, error } = require('../lib/response');
 const asyncHandler = require('../lib/asyncHandler');
+const { parseRut } = require('../services/rutParser');
+const audit = require('../services/auditService');
 
 module.exports = {
   list: asyncHandler(async (req, res) => {
@@ -13,30 +15,43 @@ module.exports = {
     } else {
       params.push(req.billerId);
       sql = `SELECT c.*, COUNT(i.id)::int AS invoice_count, COALESCE(SUM(i.total), 0) AS total_sum
-             FROM clients c INNER JOIN invoices i ON i.client_id = c.id AND i.biller_id = $1::uuid
+             FROM clients c LEFT JOIN invoices i ON i.client_id = c.id AND i.biller_id = $1::uuid
+             WHERE c.biller_id = $1::uuid
              GROUP BY c.id ORDER BY c.name`;
     }
     const { rows } = await pool.query(sql, params);
     success(res, rows);
   }),
 
+  uploadRut: asyncHandler(async (req, res) => {
+    if (!req.file) return badRequest(res, 'Archivo PDF requerido');
+    const extracted = await parseRut(req.file.buffer);
+    success(res, extracted);
+  }),
+
   create: asyncHandler(async (req, res) => {
-    const { name, email, phone, address, rnc } = req.body;
+    const { name, email, phone, address, ciudad, rnc, document_type, document_number, verification_digit, regimen, rut_metadata } = req.body;
     if (!name) return badRequest(res, 'name es requerido');
     const bid = req.isAdmin ? (req.body.biller_id || req.billerId) : req.billerId;
     if (!bid) return badRequest(res, 'biller_id es requerido');
     const { rows } = await pool.query(
-      `INSERT INTO clients (biller_id, name, email, phone, address, rnc)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [bid, name, email || null, phone || null, address || null, rnc || null]
+      `INSERT INTO clients (biller_id, name, email, phone, address, ciudad, rnc, document_type, document_number,
+        verification_digit, regimen, rut_metadata)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb) RETURNING *`,
+      [bid, name, email || null, phone || null, address || null, ciudad || null, rnc || null,
+       document_type || 'NIT', document_number || null, verification_digit || null, regimen || null,
+       JSON.stringify(rut_metadata || {})]
     );
     created(res, rows[0]);
   }),
 
   update: asyncHandler(async (req, res) => {
-    const { name, email, phone, address, rnc } = req.body;
-    let sql = `UPDATE clients SET name=$1, email=$2, phone=$3, address=$4, rnc=$5, updated_at=NOW() WHERE id=$6`;
-    const params = [name, email || null, phone || null, address || null, rnc || null, req.params.id];
+    const { name, email, phone, address, ciudad, rnc, document_type, document_number, verification_digit, regimen, rut_metadata } = req.body;
+    let sql = `UPDATE clients SET name=$1, email=$2, phone=$3, address=$4, ciudad=$5, rnc=$6, document_type=$7,
+               document_number=$8, verification_digit=$9, regimen=$10, rut_metadata=$11::jsonb, updated_at=NOW() WHERE id=$12`;
+    const params = [name, email || null, phone || null, address || null, ciudad || null, rnc || null,
+                    document_type || 'NIT', document_number || null, verification_digit || null, regimen || null,
+                    JSON.stringify(rut_metadata || {}), req.params.id];
     if (!req.isAdmin) { sql += ` AND biller_id = $${params.length + 1}::uuid`; params.push(req.billerId); }
     const { rowCount } = await pool.query(sql, params);
     if (!rowCount) return notFound(res);

@@ -13,11 +13,7 @@ export default function BillerClients() {
   const [stats, setStats] = useState({ totalClients: 0, totalInvoices: 0, totalAmount: 0 });
 
   useEffect(() => {
-    api.getBillers()
-      .then(() => fetch('/api/clients', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token') || localStorage.getItem('impersonate_token')}` }
-      }))
-      .then(r => r.json())
+    api.getClients()
       .then(data => {
         setClients(data);
         setStats({

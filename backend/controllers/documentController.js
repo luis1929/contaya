@@ -5,6 +5,7 @@ const pool = require('../db/pool');
 const { success, created, badRequest, notFound, error } = require('../lib/response');
 const asyncHandler = require('../lib/asyncHandler');
 const { whereBiller } = require('../middleware/tenantContext');
+const audit = require('../services/auditService');
 
 const uploadDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -78,6 +79,7 @@ module.exports = {
         }
         rows[0].tags = tagList;
       }
+      audit.log(req, { action: 'upload', resource: 'documents', resource_id: rows[0].id, details: { name: req.file.originalname, size: req.file.size, type: req.file.mimetype } });
       created(res, rows[0]);
     }),
   ],
@@ -162,6 +164,7 @@ module.exports = {
     const doc = rows[0];
     const filePath = path.join(getTenantDir(doc.biller_id), doc.filename);
     if (!fs.existsSync(filePath)) return notFound(res, 'File not found on disk');
+    audit.log(req, { action: 'download', resource: 'documents', resource_id: doc.id, details: { name: doc.original_name, size: doc.size } });
     res.download(filePath, doc.original_name);
   }),
 
@@ -175,6 +178,7 @@ module.exports = {
     const filePath = path.join(getTenantDir(doc.biller_id), doc.filename);
     await pool.query('DELETE FROM documents WHERE id = $1', [req.params.id]);
     try { fs.unlinkSync(filePath); } catch (e) { /* ignore */ }
+    audit.log(req, { action: 'delete', resource: 'documents', resource_id: doc.id, details: { name: doc.original_name } });
     success(res, { message: 'Documento eliminado' });
   }),
 

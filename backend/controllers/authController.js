@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const pool = require('../db/pool');
 const { success, created, badRequest, notFound, unauthorized, forbidden, error } = require('../lib/response');
 const asyncHandler = require('../lib/asyncHandler');
+const audit = require('../services/auditService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'contaya_secret_change_in_prod';
 
@@ -37,6 +38,7 @@ module.exports = {
     if (!match) return unauthorized(res, 'Credenciales inválidas');
     const token = jwt.sign({ id: rows[0].id, email: rows[0].email, role: 'admin' }, JWT_SECRET, { expiresIn: '7d' });
     const { password: _, ...user } = rows[0];
+    audit.logActivity({ actor_id: rows[0].id, actor_name: rows[0].email, actor_role: 'admin', action: 'login', resource: 'auth', details: { method: 'email' }, ip_address: audit.getIp(req) });
     success(res, { user: { ...user, role: 'admin' }, token });
   }),
 
@@ -55,6 +57,7 @@ module.exports = {
       biller_id: billers[0].id, name: billers[0].name,
       document_number: billers[0].document_number, role: 'biller'
     }, JWT_SECRET, { expiresIn: '7d' });
+    audit.logActivity({ actor_id: billers[0].id, actor_name: billers[0].name, actor_role: 'biller', action: 'login', resource: 'auth', details: { nit: billers[0].document_number }, ip_address: audit.getIp(req) });
     success(res, {
       user: { id: billers[0].id, name: billers[0].name, nit: billers[0].document_number, role: 'biller' }, token
     });

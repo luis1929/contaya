@@ -14,6 +14,7 @@ export default function AdminBillers() {
   const [showCreate, setShowCreate] = useState(false);
   const [editBiller, setEditBiller] = useState(null);
   const [form, setForm] = useState({ name: '', document_number: '', email: '', phone: '', address: '', city: '', password: '' });
+  const [syncing, setSyncing] = useState({});
 
   const load = async (p = 1) => {
     setLoading(true);
@@ -80,6 +81,20 @@ export default function AdminBillers() {
     }
   };
 
+  const handleSync = async (biller) => {
+    setSyncing(prev => ({ ...prev, [biller.id]: true }));
+    try {
+      await api.syncBiller(biller.id);
+    } catch (err) {
+      alert('Error al iniciar sincronización: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setTimeout(() => {
+        setSyncing(prev => ({ ...prev, [biller.id]: false }));
+        load(page);
+      }, 2000);
+    }
+  };
+
   const openEdit = (biller) => {
     setEditBiller(biller);
     setForm({
@@ -97,7 +112,7 @@ export default function AdminBillers() {
     try {
       const data = await api.impersonate(biller.id);
       localStorage.setItem('impersonate_token', data.token);
-      localStorage.setItem('impersonating', JSON.stringify({ biller_id: biller.id, name: biller.name }));
+      localStorage.setItem('impersonating', 'true');
       window.open('/dashboard', '_blank');
     } catch (err) {
       alert('Error al ingresar');
@@ -141,6 +156,18 @@ export default function AdminBillers() {
                   <Badge color={b.is_active ? 'success' : 'danger'}>
                     {b.is_active ? 'Activo' : 'Inactivo'}
                   </Badge>
+                  <Badge color={b.credentials_configured ? 'info' : 'gray'}>
+                    {b.credentials_configured ? 'FacturaTech ✔' : 'Sin scraper'}
+                  </Badge>
+                  <Badge color={
+                    b.scrape_status === 'done' ? 'success' :
+                    b.scrape_status === 'running' ? 'warning' :
+                    b.scrape_status === 'error' ? 'danger' : 'gray'
+                  }>
+                    {b.scrape_status === 'done' ? '✓ Sincronizado' :
+                     b.scrape_status === 'running' ? '🔄 Sincronizando' :
+                     b.scrape_status === 'error' ? '✗ Error' : '—'}
+                  </Badge>
                 </div>
                 <div className="flex gap-4 text-sm text-gray-500">
                   <span>NIT: {b.document_number}</span>
@@ -150,6 +177,18 @@ export default function AdminBillers() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                {b.credentials_configured && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleSync(b)}
+                    disabled={syncing[b.id]}
+                    title="Sincronizar con FacturaTech"
+                    className={syncing[b.id] ? 'animate-pulse' : ''}
+                  >
+                    {syncing[b.id] ? '⏳' : '⚡'}
+                  </Button>
+                )}
                 <Button variant="ghost" size="sm" onClick={() => handleImpersonate(b)}>
                   🔍
                 </Button>

@@ -48,7 +48,7 @@ export default function BillerDashboard() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -85,6 +85,33 @@ export default function BillerDashboard() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="md:hidden space-y-3">
+        {invoices.slice(0, 20).map((inv, i) => (
+          <div key={inv.id} className="bg-white rounded-xl border border-gray-200 p-4 space-y-2 fade-in" style={{ animationDelay: `${i * 0.03}s` }}>
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-sm text-gray-700">{inv.ncf}</span>
+              <Badge color={inv.status === 'Firmado' ? 'success' : 'warning'}>{inv.status}</Badge>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Cliente</span>
+              <span className="font-medium text-gray-900 text-right">{inv.client_name || (inv.client || '').split('...')[0]}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Fecha</span>
+              <span className="text-gray-700">{inv.created_at?.slice(0, 10)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Total</span>
+              <span className="font-semibold text-gray-900">{fmt(inv.total)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Pagado</span>
+              <span className={inv.paid ? 'text-success font-medium' : 'text-gray-400'}>{inv.paid ? 'Sí' : 'No'}</span>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

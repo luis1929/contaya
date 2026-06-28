@@ -25,6 +25,7 @@ app.use('/api/documents', require('./routes/documents'));
 app.use('/api/company', require('./routes/company'));
 app.use('/api/health', require('./routes/health'));
 app.use('/api/declarations', require('./routes/declarations'));
+app.use('/api/items', require('./routes/items'));
 app.use('/api/admin', require('./routes/admin'));
 
 app.use((req, res) => {

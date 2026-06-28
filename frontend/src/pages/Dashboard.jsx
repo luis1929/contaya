@@ -4,8 +4,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
 
 const blue = '#062a51';
-const gold = '#FFD066';
-const bg = '#fafafa';
 
 const features = [
   { to: '/facturas', icon: '📄', title: 'Gestión de Facturas', desc: 'Sube y procesa facturas en PDF. Extracción automática de datos como RNC, NCF, montos y fechas.' },
@@ -41,8 +39,7 @@ const s = {
     borderRadius: '5px', 
     cursor: 'pointer', 
     fontSize: '0.85rem',
-    transition: 'var(--transition)',
-    ':hover': { background: 'rgba(255,255,255,0.25)' }
+    transition: 'var(--transition)'
   },
   main: { maxWidth: '1200px', margin: '0 auto', padding: '2rem' },
   header: { marginBottom: '2.5rem' },
@@ -59,12 +56,7 @@ const s = {
     color: 'inherit', 
     display: 'block', 
     transition: 'box-shadow 0.2s, transform 0.2s, border-color 0.2s',
-    boxShadow: 'var(--shadow-sm)',
-    ':hover': {
-      boxShadow: 'var(--shadow-md)',
-      transform: 'translateY(-2px)',
-      borderColor: 'var(--primary-light)'
-    }
+    boxShadow: 'var(--shadow-sm)'
   },
   iconBox: { 
     width: '48px', 
@@ -117,7 +109,6 @@ export default function Dashboard() {
   const authContext = useContext(AuthContext);
   const navigate = useNavigate();
   const [summary, setSummary] = useState(null);
-  const [company, setCompany] = useState(null);
 
   useEffect(() => {
     if (!authContext.isAuthenticated) {
@@ -125,12 +116,6 @@ export default function Dashboard() {
       return;
     }
 
-    // Load company data for the authenticated user
-    api.getCompany()
-      .then(setCompany)
-      .catch(() => {});
-
-    // Load invoice summary
     api.getInvoiceSummary()
       .then(setSummary)
       .catch(() => {});

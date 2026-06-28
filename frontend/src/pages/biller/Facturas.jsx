@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../services/api';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
+import InvoiceViewer from '../../components/InvoiceViewer';
 
 function fmt(n) {
   if (n == null) return '$0';
@@ -13,6 +14,7 @@ export default function BillerFacturas() {
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ desde: '', hasta: '', cliente: '', estatus: '' });
   const [stats, setStats] = useState({ total: 0, count: 0, iva: 0, subtotal: 0 });
+  const [viewerId, setViewerId] = useState(null);
   const [page, setPage] = useState(1);
   const perPage = 20;
 
@@ -114,43 +116,86 @@ export default function BillerFacturas() {
           <p className="text-sm text-gray-400">Intenta ajustar los filtros</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">NCF</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Cliente</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Fecha</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Total</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">IVA</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Subtotal</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Estado</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {current.map((inv, i) => (
-                  <tr key={inv.id} className="hover:bg-gray-50 transition-colors fade-in" style={{ animationDelay: `${i * 0.03}s` }}>
-                    <td className="px-4 py-3 text-sm font-mono font-medium text-gray-700">{inv.ncf}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
-                      <div className="font-medium">{inv.client_name || (inv.client || '').split('...')[0]}</div>
-                      {inv.client_email && <div className="text-xs text-gray-400">{inv.client_email}</div>}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{inv.created_at?.slice(0, 10)}</td>
-                    <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">{fmt(inv.total)}</td>
-                    <td className="px-4 py-3 text-sm text-primary font-medium text-right">{fmt(inv.total * 0.19)}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500 text-right">{fmt(inv.total / 1.19)}</td>
-                    <td className="px-4 py-3 text-center">
-                      <Badge color={inv.status === 'Firmado' ? 'success' : inv.status === 'Anulado' ? 'danger' : 'warning'}>
-                        {inv.status}
-                      </Badge>
-                    </td>
+        <>
+          <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">NCF</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Cliente</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Fecha</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Total</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">IVA</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Subtotal</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Estado</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {current.map((inv, i) => (
+                    <tr key={inv.id} className="hover:bg-gray-50 transition-colors fade-in" style={{ animationDelay: `${i * 0.03}s` }}>
+                      <td className="px-4 py-3 text-sm font-mono font-medium">
+                        <button onClick={() => setViewerId(inv.id)}
+                          className="text-primary hover:text-primary-dark hover:underline cursor-pointer">
+                          {inv.ncf || '—'}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        <div className="font-medium">{inv.client_name || (inv.client || '').split('...')[0]}</div>
+                        {inv.client_email && <div className="text-xs text-gray-400">{inv.client_email}</div>}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">{inv.created_at?.slice(0, 10)}</td>
+                      <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">{fmt(inv.total)}</td>
+                      <td className="px-4 py-3 text-sm text-primary font-medium text-right">{fmt(inv.total * 0.19)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500 text-right">{fmt(inv.total / 1.19)}</td>
+                      <td className="px-4 py-3 text-center">
+                        <Badge color={inv.status === 'Firmado' ? 'success' : inv.status === 'Anulado' ? 'danger' : 'warning'}>
+                          {inv.status}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+
+          <div className="md:hidden space-y-3">
+            {current.map((inv, i) => (
+              <div key={inv.id} className="bg-white rounded-xl border border-gray-200 p-4 space-y-2 fade-in" style={{ animationDelay: `${i * 0.03}s` }}>
+                <div className="flex items-center justify-between">
+                  <button onClick={() => setViewerId(inv.id)} className="text-primary font-mono text-sm font-medium hover:underline">
+                    {inv.ncf || '—'}
+                  </button>
+                  <Badge color={inv.status === 'Firmado' ? 'success' : inv.status === 'Anulado' ? 'danger' : 'warning'}>
+                    {inv.status}
+                  </Badge>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Cliente</span>
+                  <span className="font-medium text-gray-900 text-right">{inv.client_name || (inv.client || '').split('...')[0]}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Fecha</span>
+                  <span className="text-gray-700">{inv.created_at?.slice(0, 10)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Total</span>
+                  <span className="font-semibold text-gray-900">{fmt(inv.total)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">IVA</span>
+                  <span className="text-primary font-medium">{fmt(inv.total * 0.19)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Subtotal</span>
+                  <span className="text-gray-700">{fmt(inv.total / 1.19)}</span>
+                </div>
+                {inv.client_email && <p className="text-xs text-gray-400">{inv.client_email}</p>}
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {totalPages > 1 && (
@@ -166,6 +211,8 @@ export default function BillerFacturas() {
       <p className="text-center text-sm text-gray-400">
         Mostrando {((page - 1) * perPage) + 1}-{Math.min(page * perPage, invoices.length)} de {invoices.length} facturas
       </p>
+
+      {viewerId && <InvoiceViewer invoiceId={viewerId} onClose={() => setViewerId(null)} />}
     </div>
   );
 }

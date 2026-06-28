@@ -12,6 +12,7 @@ router.post('/billers', requirePermission('billers', 'create'), ctrl.createBille
 router.put('/billers/:id', requirePermission('billers', 'update'), ctrl.updateBiller);
 router.delete('/billers/:id', requirePermission('billers', 'delete'), ctrl.deleteBiller);
 router.get('/audit-log', requirePermission('audit_log', 'read'), ctrl.auditLog);
+router.get('/audit-stats', requirePermission('audit_log', 'read'), ctrl.auditStats);
 router.get('/settings', ctrl.getSettings);
 router.put('/settings', ctrl.updateSetting);
 

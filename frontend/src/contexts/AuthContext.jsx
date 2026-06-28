@@ -119,7 +119,11 @@ function AuthProvider({ children }) {
     if (state.user && state.token) {
       localStorage.setItem('token', state.token);
       localStorage.setItem('user', JSON.stringify(state.user));
-      localStorage.setItem('impersonating', state.impersonating ? 'true' : 'false');
+      if (state.impersonating) {
+        localStorage.setItem('impersonating', 'true');
+      } else {
+        localStorage.removeItem('impersonating');
+      }
       if (state.impersonatedBy) {
         localStorage.setItem('impersonated_by', state.impersonatedBy);
       }

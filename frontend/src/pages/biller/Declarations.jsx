@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import Badge from '../../components/ui/Badge';
 
 const declarations = [
@@ -62,7 +61,7 @@ export default function BillerDeclarations() {
 
       <div>
         <h3 className="text-lg font-semibold text-gray-900 mb-4">📅 Próximos Vencimientos</h3>
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-hidden">
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
@@ -96,6 +95,34 @@ export default function BillerDeclarations() {
               })}
             </tbody>
           </table>
+        </div>
+
+        <div className="md:hidden space-y-3">
+          {deadlines.map((d, i) => {
+            const days = Math.ceil((new Date(d.dueDate) - new Date()) / (1000 * 60 * 60 * 24));
+            return (
+              <div key={i} className="bg-white rounded-xl border border-gray-200 p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-gray-900">{d.type} - {d.period}</span>
+                  <Badge color={d.importance === 'high' ? 'danger' : 'warning'}>
+                    {d.importance === 'high' ? 'Alta' : 'Media'}
+                  </Badge>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Fecha Límite</span>
+                  <span className="text-gray-700">{d.dueDate}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Días</span>
+                  <span className={`font-semibold ${
+                    days < 0 ? 'text-danger' : days < 7 ? 'text-warning' : 'text-success'
+                  }`}>
+                    {days < 0 ? 'Vencido' : `${days} días`}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

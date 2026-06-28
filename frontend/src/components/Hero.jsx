@@ -1,5 +1,3 @@
-import { Link } from 'react-router-dom';
-
 const styles = {
   section: {
     padding: '10rem 2rem 6rem',
@@ -58,7 +56,6 @@ export default function Hero() {
           declaraciones de IVA y Renta de forma automatizada. Todo en un solo lugar.
         </p>
         <div style={styles.buttons}>
-          <Link to="/dashboard" style={styles.btnPrimary}>Ir al Dashboard</Link>
           <a href="#features" style={styles.btnSecondary}>Ver características</a>
         </div>
       </div>
