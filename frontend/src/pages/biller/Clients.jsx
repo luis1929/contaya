@@ -3,26 +3,13 @@ import { api } from '../../services/api';
 import Badge from '../../components/ui/Badge';
 import StatsCard from '../../components/ui/StatsCard';
 
-function fmt(n) {
-  if (n == null) return '$0';
-  return '$' + Number(n).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
 export default function BillerClients() {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ totalClients: 0, totalInvoices: 0, totalAmount: 0 });
 
   useEffect(() => {
     api.getClients()
-      .then(data => {
-        setClients(data);
-        setStats({
-          totalClients: data.length,
-          totalInvoices: data.reduce((s, c) => s + (c.invoice_count || 0), 0),
-          totalAmount: data.reduce((s, c) => s + (c.total_sum || 0), 0),
-        });
-      })
+      .then(setClients)
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
@@ -46,9 +33,7 @@ export default function BillerClients() {
 
       {clients.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <StatsCard label="Total Clientes" value={stats.totalClients} icon="👥" color="primary" />
-          <StatsCard label="Total Facturas" value={stats.totalInvoices} icon="📄" color="info" />
-          <StatsCard label="Total Facturado" value={stats.totalAmount} icon="💰" color="success" format="currency" />
+          <StatsCard label="Total Clientes" value={clients.length} icon="👥" color="primary" />
         </div>
       )}
 
@@ -66,8 +51,7 @@ export default function BillerClients() {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Cliente</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">NIT</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Email</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Facturas</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Total Facturado</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Ciudad</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Régimen</th>
                 </tr>
               </thead>
@@ -76,7 +60,6 @@ export default function BillerClients() {
                   <tr key={client.id} className="hover:bg-gray-50 transition-colors fade-in" style={{ animationDelay: `${i * 0.03}s` }}>
                     <td className="px-4 py-3">
                       <span className="font-medium text-gray-900">{client.name}</span>
-                      {client.ciudad && <span className="text-xs text-gray-400 ml-2">📍 {client.ciudad}</span>}
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-600">
                       {client.document || '—'}
@@ -84,11 +67,8 @@ export default function BillerClients() {
                     <td className="px-4 py-3 text-sm text-gray-500">
                       {client.email || '—'}
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="font-semibold text-primary">{client.invoice_count || 0}</span>
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold text-gray-900">
-                      {fmt(client.total_sum)}
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {client.ciudad || '—'}
                     </td>
                     <td className="px-4 py-3 text-center">
                       {client.regimen ? <Badge color="info">{client.regimen}</Badge> : '—'}
