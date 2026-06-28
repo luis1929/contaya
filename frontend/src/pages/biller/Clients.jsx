@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../services/api';
+import Badge from '../../components/ui/Badge';
 import StatsCard from '../../components/ui/StatsCard';
 
 function fmt(n) {
@@ -38,7 +39,9 @@ export default function BillerClients() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-gray-900">Clientes</h2>
-        <p className="text-gray-500 mt-1">{clients.length > 0 && `${clients.length} clientes registrados`}</p>
+        {clients.length > 0 && (
+          <p className="text-gray-500 mt-1">{clients.length} clientes registrados</p>
+        )}
       </div>
 
       {clients.length > 0 && (
@@ -55,40 +58,46 @@ export default function BillerClients() {
           <p className="text-sm text-gray-400">Los clientes aparecerán al procesar facturas</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {clients.map((client, i) => (
-            <div key={client.id} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 fade-in" style={{ animationDelay: `${i * 0.03}s` }}>
-              <h3 className="font-semibold text-gray-900 mb-3">{client.name}</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Facturas:</span>
-                  <span className="font-medium text-primary">{client.invoice_count || 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Total Facturado:</span>
-                  <span className="font-semibold text-gray-900">{fmt(client.total_sum)}</span>
-                </div>
-                {client.invoice_count > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Promedio:</span>
-                    <span className="font-medium text-gray-700">{fmt(client.total_sum / client.invoice_count)}</span>
-                  </div>
-                )}
-                {client.document_number && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">NIT:</span>
-                    <span className="font-mono text-xs text-gray-600">{client.document_number}</span>
-                  </div>
-                )}
-                {client.email && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Email:</span>
-                    <span className="text-xs text-gray-600">{client.email}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Cliente</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">NIT</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Email</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Facturas</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Total Facturado</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Régimen</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {clients.map((client, i) => (
+                  <tr key={client.id} className="hover:bg-gray-50 transition-colors fade-in" style={{ animationDelay: `${i * 0.03}s` }}>
+                    <td className="px-4 py-3">
+                      <span className="font-medium text-gray-900">{client.name}</span>
+                      {client.ciudad && <span className="text-xs text-gray-400 ml-2">📍 {client.ciudad}</span>}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-600">
+                      {client.document || '—'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {client.email || '—'}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className="font-semibold text-primary">{client.invoice_count || 0}</span>
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold text-gray-900">
+                      {fmt(client.total_sum)}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {client.regimen ? <Badge color="info">{client.regimen}</Badge> : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

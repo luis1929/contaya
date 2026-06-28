@@ -12,12 +12,14 @@ module.exports = {
     const params = [];
     if (req.isAdmin) {
       sql = `SELECT c.*, COUNT(i.id)::int AS invoice_count, COALESCE(SUM(i.total), 0) AS total_sum
-             FROM clients c LEFT JOIN invoices i ON i.client_id = c.id
+             FROM clients c
+             LEFT JOIN invoices i ON i.client_id = c.id OR (i.client_id IS NULL AND i.client_name ILIKE c.name)
              GROUP BY c.id ORDER BY c.name`;
     } else {
       params.push(req.billerId);
       sql = `SELECT c.*, COUNT(i.id)::int AS invoice_count, COALESCE(SUM(i.total), 0) AS total_sum
-             FROM clients c LEFT JOIN invoices i ON i.client_id = c.id AND i.biller_id = $1::uuid
+             FROM clients c
+             LEFT JOIN invoices i ON i.biller_id = $1::uuid AND (i.client_id = c.id OR (i.client_id IS NULL AND i.client_name ILIKE c.name))
              WHERE c.biller_id = $1::uuid
              GROUP BY c.id ORDER BY c.name`;
     }
