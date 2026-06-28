@@ -53,35 +53,72 @@ export async function extractInvoices(page, { maxPages = 15, pageSize = 100 } = 
           }
           if (!target) return null;
 
-          var result = parseDataTable(target);
+          var headers = [];
+          var headerRow = target.querySelector('thead tr');
+          if (!headerRow) {
+            var allRows = target.querySelectorAll('tbody tr, thead tr');
+            if (allRows.length === 0) allRows = target.querySelectorAll('tr');
+            if (allRows.length > 0 && isHeaderRow(allRows[0])) {
+              headerRow = allRows[0];
+            }
+          }
+          if (headerRow) {
+            headerRow.querySelectorAll('th, td').forEach(function(cell) {
+              headers.push(normalizeHeader(cell.textContent.trim()));
+            });
+          }
 
-          // Extract id_comprobante and action metadata from each row
           var rows = target.querySelectorAll('tbody tr');
-          for (var r = 1; r < rows.length; r++) {
+          if (rows.length === 0) rows = target.querySelectorAll('tr');
+
+          var dataRows = [];
+          var startIndex = (rows.length > 0 && isHeaderRow(rows[0])) ? 1 : 0;
+
+          for (var r = startIndex; r < rows.length; r++) {
             var row = rows[r];
+            var cells = row.querySelectorAll('td');
+            if (cells.length === 0) continue;
+
+            var entry = {};
+            var isEmpty = true;
+
+            for (var i = 0; i < cells.length; i++) {
+              var val = cells[i].textContent.trim();
+              if (headers[i]) {
+                entry[headers[i]] = val;
+              } else if (i < headers.length) {
+                entry[headers[i]] = val;
+              } else {
+                entry['col_' + i] = val;
+              }
+              if (val) isEmpty = false;
+            }
+
+            // Extract internal id from action buttons
             var anchor = row.querySelector('a[id="generar_nota"]');
             if (anchor) {
               var idComp = anchor.getAttribute('id_comprobante');
-              if (idComp) {
-                if (!result.rows[r - 1]) result.rows[r - 1] = {};
-                result.rows[r - 1]._internal_id = idComp.trim();
-                result.rows[r - 1]._folio = anchor.getAttribute('folio');
-                result.rows[r - 1]._prefijo = anchor.getAttribute('prefijo');
-                result.rows[r - 1]._tipo_operacion = anchor.getAttribute('tipo_operacion');
-              }
+              if (idComp) entry._internal_id = idComp.trim();
+              var folio = anchor.getAttribute('folio');
+              if (folio) entry._folio = folio;
+              var prefijo = anchor.getAttribute('prefijo');
+              if (prefijo) entry._prefijo = prefijo;
             }
-            // Extract XML download URL for idUs
+
+            // Extract XML download IDs
             var xmlLink = row.querySelector('a[href*="tipo=xml"]');
             if (xmlLink) {
               var href = xmlLink.getAttribute('href');
-              var match = href.match(/idCom=(\d+)/);
-              if (match && (!result.rows[r - 1])) result.rows[r - 1] = {};
-              if (match && result.rows[r - 1]) result.rows[r - 1]._id_comprobante = match[1];
+              var idMatch = href.match(/idCom=(\d+)/);
+              if (idMatch) entry._id_comprobante = idMatch[1];
               var usMatch = href.match(/idUs=(\d+)/);
-              if (usMatch && result.rows[r - 1]) result.rows[r - 1]._id_us = usMatch[1];
+              if (usMatch) entry._id_us = usMatch[1];
             }
+
+            if (!isEmpty) dataRows.push(entry);
           }
-          return result;
+
+          return { headers: headers, rows: dataRows };
         })()
       `);
 
