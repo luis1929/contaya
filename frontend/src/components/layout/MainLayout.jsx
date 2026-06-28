@@ -51,15 +51,18 @@ export default function MainLayout() {
               </NavLink>
             )}
             <div className="flex items-center gap-3">
-              <span className="hidden sm:inline text-sm text-gray-600 font-medium">{user?.name || 'Usuario'}</span>
+              <div className="hidden sm:block text-right">
+                <p className="text-sm font-medium text-gray-900">{user?.name || 'Usuario'}</p>
+                {user?.document_number && <p className="text-xs text-gray-400">NIT: {user.document_number}</p>}
+              </div>
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary-dark text-white flex items-center justify-center text-sm font-semibold shadow-sm">
                 {(user?.name || 'U')[0]}
               </div>
               <button
                 onClick={() => { localStorage.clear(); window.location.href = '/login'; }}
-                className="text-xs text-gray-400 hover:text-danger transition-colors font-medium ml-2"
+                className="px-3 py-1.5 text-xs font-semibold text-danger border border-danger rounded-lg hover:bg-danger hover:text-white transition-colors ml-1"
               >
-                Salir
+                Cerrar sesión
               </button>
             </div>
           </div>
