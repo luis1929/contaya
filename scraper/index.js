@@ -22,6 +22,7 @@ const USER = getArg('user') || process.env.FACTURATECH_USER || '72005672';
 const PASS = getArg('pass') || process.env.FACTURATECH_PASS || 'Ortega2026$';
 const BILLER_ID = getArg('biller-id') || null;
 const OUTPUT = getArg('output') || null;
+const WITH_DETAILS = getArg('details') === 'true';
 
 async function setScrapeStatus(status, errorMsg = null) {
   if (!BILLER_ID) return;
@@ -49,7 +50,7 @@ async function scrape() {
       { headless: true, retries: 2 }
     );
 
-    const syncResult = await fullSync(session.page);
+    const syncResult = await fullSync(session.page, { extractDetails: WITH_DETAILS });
 
     if (OUTPUT) {
       const fs = await import('fs');

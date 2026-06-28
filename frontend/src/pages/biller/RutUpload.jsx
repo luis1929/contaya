@@ -22,6 +22,7 @@ export default function RutUpload() {
   const [form, setForm] = useState({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [alert, setAlert] = useState(null);
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef(null);
@@ -83,6 +84,23 @@ export default function RutUpload() {
       setAlert({ type: 'error', message: 'Error al crear cliente: ' + (err.response?.data?.error || err.message) });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSyncFacturatech = async () => {
+    if (!form.document_number?.trim()) {
+      setAlert({ type: 'error', message: 'Debe tener un NIT para sincronizar con FacturaTech' });
+      return;
+    }
+    setSyncing(true);
+    setAlert(null);
+    try {
+      const resp = await api.syncClientFacturatech({ document_number: form.document_number });
+      setAlert({ type: 'success', message: resp.message || 'Sincronización iniciada. Los datos se actualizarán en segundo plano.' });
+    } catch (err) {
+      setAlert({ type: 'error', message: 'Error: ' + (err.response?.data?.error || err.message) });
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -150,6 +168,9 @@ export default function RutUpload() {
           <div className="flex gap-3 pt-4 border-t border-gray-100 mt-4">
             <Button onClick={handleSave} disabled={saving}>
               {saving ? 'Guardando...' : 'Guardar Cliente'}
+            </Button>
+            <Button variant="secondary" onClick={handleSyncFacturatech} disabled={syncing || !form.document_number}>
+              {syncing ? 'Sincronizando...' : 'Sincronizar con FacturaTech'}
             </Button>
             <Button variant="secondary" onClick={() => { setFile(null); setExtracted(null); setForm({}); }}>
               Cancelar

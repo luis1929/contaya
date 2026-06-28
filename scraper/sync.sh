@@ -29,6 +29,11 @@ if ! echo "${ARGS[*]}" | grep -q -- '--output='; then
   ARGS+=("--output=$OUTPUT_FILE")
 fi
 
+# Default details=true
+if ! echo "${ARGS[*]}" | grep -q -- '--details='; then
+  ARGS+=("--details=true")
+fi
+
 echo "[sync.sh] Starting Contaya Facturatech sync at $TIMESTAMP"
 echo "[sync.sh] Log: $OUTPUT_DIR/sync_${TIMESTAMP}.log"
 echo "[sync.sh] Output: $OUTPUT_FILE"

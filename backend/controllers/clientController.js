@@ -3,6 +3,8 @@ const { success, created, badRequest, notFound, error } = require('../lib/respon
 const asyncHandler = require('../lib/asyncHandler');
 const { parseRut } = require('../services/rutParser');
 const audit = require('../services/auditService');
+const { spawn } = require('child_process');
+const path = require('path');
 
 module.exports = {
   list: asyncHandler(async (req, res) => {
@@ -66,5 +68,40 @@ module.exports = {
     const { rowCount } = await pool.query(sql, params);
     if (!rowCount) return notFound(res);
     success(res, { message: 'Deleted' });
+  }),
+
+  syncFacturatech: asyncHandler(async (req, res) => {
+    const { document_number } = req.body;
+    if (!document_number) return badRequest(res, 'document_number es requerido');
+
+    const bid = req.isAdmin ? (req.body.biller_id || req.billerId) : req.billerId;
+    if (!bid) return badRequest(res, 'biller_id no disponible');
+
+    const { rows: creds } = await pool.query(
+      `SELECT username_encrypted, password_encrypted FROM biller_credentials
+       WHERE biller_id = $1 AND is_configured = true`,
+      [bid]
+    );
+    if (!creds.length) {
+      return badRequest(res, 'No hay credenciales de FacturaTech configuradas para este facturador');
+    }
+
+    const crypto = require('../services/cryptoService');
+    const user = crypto.decrypt(creds[0].username_encrypted);
+    const pass = crypto.decrypt(creds[0].password_encrypted);
+
+    const scraperPath = path.join(__dirname, '../../scraper/index.js');
+    const child = spawn('node', [scraperPath, `--biller-id=${bid}`], {
+      env: { ...process.env, FACTURATECH_USER: user, FACTURATECH_PASS: pass },
+      detached: true, stdio: 'ignore',
+    });
+    child.unref();
+
+    await pool.query(
+      `UPDATE billers SET scrape_status = 'running', scrape_last_run = NOW() WHERE id = $1`,
+      [bid]
+    );
+
+    success(res, { message: 'Sincronización con FacturaTech iniciada. Los datos se actualizarán en segundo plano.' });
   }),
 };

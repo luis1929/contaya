@@ -11,6 +11,7 @@ router.use(authMiddleware, billerContext);
 router.get('/', ctrl.list);
 router.post('/upload-rut', upload.single('file'), ctrl.uploadRut);
 router.post('/', ctrl.create);
+router.post('/sync-facturatech', ctrl.syncFacturatech);
 router.put('/:id', ctrl.update);
 router.delete('/:id', ctrl.remove);
 

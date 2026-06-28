@@ -1,7 +1,8 @@
-import { extractInvoices } from './extractors/invoices.js';
+import { extractInvoices, extractInvoiceDetail } from './extractors/invoices.js';
 import { extractClients } from './extractors/clients.js';
 import { extractItems } from './extractors/items.js';
 import { extractConfig } from './extractors/config.js';
+import { sleep } from './browser.js';
 
 export async function fullSync(page, options = {}) {
   const {
@@ -9,6 +10,8 @@ export async function fullSync(page, options = {}) {
     extractClients: doClients = true,
     extractItems: doItems = true,
     extractConfig: doConfig = true,
+    extractDetails: doDetails = false,
+    detailBatchSize = 10,
   } = options;
 
   const result = {};
@@ -55,6 +58,36 @@ export async function fullSync(page, options = {}) {
       console.error(`[sync] Config FAILED: ${err.message}`);
       result.config = { error: err.message };
     }
+  }
+
+  if (doDetails && Array.isArray(result.invoices) && result.invoices.length > 0) {
+    console.log('\n========== EXTRACT: INVOICE DETAILS ==========');
+    const itemsWithInvoice = [];
+    let processed = 0;
+    let errors = 0;
+
+    for (let i = 0; i < result.invoices.length; i += detailBatchSize) {
+      const batch = result.invoices.slice(i, i + detailBatchSize);
+      for (const inv of batch) {
+        try {
+          const detail = await extractInvoiceDetail(page, inv);
+          if (detail && detail.items && detail.items.length > 0) {
+            for (const item of detail.items) {
+              itemsWithInvoice.push({ ...item, _ncf: inv.ncf });
+            }
+          }
+          processed++;
+        } catch (err) {
+          console.error(`[sync] Detail FAILED for ${inv.ncf}: ${err.message}`);
+          errors++;
+        }
+        await sleep(1000);
+      }
+      console.log(`[sync] Detail progress: ${processed}/${result.invoices.length} invoices, ${itemsWithInvoice.length} line items`);
+    }
+
+    result.invoice_details = { items: itemsWithInvoice };
+    console.log(`[sync] Invoice details done: ${processed} invoices, ${itemsWithInvoice.length} line items, ${errors} errors`);
   }
 
   return result;

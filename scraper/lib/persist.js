@@ -166,7 +166,7 @@ export async function persistItems(pool, rows, billerId) {
     const code = row.code || row.codigo;
     if (!code) continue;
 
-    const unitVal = parseTotal(row.unit_price || row.precio_unitario || row.valor_unitario || row.unitario || row.precio || row.total);
+    const unitVal = parseTotal(row.unit_price || row.precio_unitario || row.valor_unitario || row.unitario || row.precio || row.total) || 0;
     const ivaPct = parseFloat(row.iva_percentage || row.iva) || 19;
     const retPct = parseFloat(row.retention_percentage || row.retencion) || 0;
 
@@ -241,6 +241,48 @@ export async function persistConfig(pool, config, billerId) {
   }
 }
 
+export async function persistInvoiceItems(pool, invoiceItems, billerId) {
+  if (!Array.isArray(invoiceItems) || invoiceItems.length === 0) return { inserted: 0, errors: 0 };
+
+  let inserted = 0;
+  let errors = 0;
+
+  for (const item of invoiceItems) {
+    const ncf = item._ncf;
+    if (!ncf) continue;
+
+    try {
+      const { rows: [invoice] } = await pool.query(
+        `SELECT id FROM invoices WHERE biller_id = $1 AND ncf = $2`,
+        [billerId, ncf]
+      );
+      if (!invoice) continue;
+
+      const code = item.code || item.code || item.identificador || null;
+      const desc = item.description || item.descripcion || item.nombre || item.name || '';
+      const qty = parseFloat(item.quantity || item.cantidad || item.cant || 1) || 1;
+      const unitPrice = parseTotal(item.unit_price || item.precio_unitario || item.valor_unitario || item.unitario || item.precio || 0) || 0;
+      const ivaPct = parseFloat(item.iva_percentage || item.iva || 0) || 0;
+      const retPct = parseFloat(item.retention_percentage || item.retencion || 0) || 0;
+      const totalVal = parseTotal(item.total || 0) || (qty * unitPrice);
+
+      await pool.query(
+        `INSERT INTO invoice_items
+           (invoice_id, code, description, quantity, unit_price,
+            iva_percentage, retention_percentage, total)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [invoice.id, code, desc, qty, unitPrice, ivaPct, retPct, totalVal]
+      );
+      inserted++;
+    } catch (err) {
+      console.error(`[persist] Error inserting invoice_item for invoice ncf=${ncf}: ${err.message}`);
+      errors++;
+    }
+  }
+
+  return { inserted, errors };
+}
+
 export async function persistAll(pool, syncResult, billerId) {
   const results = {};
 
@@ -276,7 +318,24 @@ export async function persistAll(pool, syncResult, billerId) {
     results.items = { error: err.message };
   }
 
-  // 4. Biller config
+  // 4. Invoice Items (line items)
+  if (syncResult.invoice_details && syncResult.invoice_details.items) {
+    console.log('[persist] Invoice items...');
+    try {
+      // Clear existing invoice_items for this biller first
+      await pool.query(
+        `DELETE FROM invoice_items WHERE invoice_id IN (SELECT id FROM invoices WHERE biller_id = $1)`,
+        [billerId]
+      );
+      results.invoice_items = await persistInvoiceItems(pool, syncResult.invoice_details.items, billerId);
+      console.log(`  → ${results.invoice_items.inserted} inserted, ${results.invoice_items.errors} errors`);
+    } catch (err) {
+      console.error(`  ✗ FAILED: ${err.message}`);
+      results.invoice_items = { error: err.message };
+    }
+  }
+
+  // 5. Biller config
   console.log('[persist] Biller config...');
   try {
     results.config = await persistConfig(pool, syncResult.config, billerId);

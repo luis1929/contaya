@@ -157,6 +157,10 @@ export const api = {
     const { data } = await client.post('/clients', payload);
     return data;
   },
+  syncClientFacturatech: async (payload) => {
+    const { data } = await client.post('/clients/sync-facturatech', payload);
+    return data;
+  },
   updateClient: async (id, payload) => {
     const { data } = await client.put(`/clients/${id}`, payload);
     return data;
