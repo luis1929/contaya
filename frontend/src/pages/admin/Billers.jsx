@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../../services/api';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -15,6 +15,8 @@ export default function AdminBillers() {
   const [editBiller, setEditBiller] = useState(null);
   const [form, setForm] = useState({ name: '', document_number: '', email: '', phone: '', address: '', city: '', password: '' });
   const [syncing, setSyncing] = useState({});
+  const [rutLoading, setRutLoading] = useState(false);
+  const rutInputRef = useRef(null);
 
   const load = async (p = 1) => {
     setLoading(true);
@@ -31,6 +33,26 @@ export default function AdminBillers() {
   };
 
   useEffect(() => { load(); }, []);
+
+  const handleRutUpload = async (file) => {
+    if (!file || file.type !== 'application/pdf') {
+      alert('Solo se aceptan archivos PDF');
+      return;
+    }
+    setRutLoading(true);
+    try {
+      const data = await api.uploadRut(file);
+      if (data.commercial_name) setForm(prev => ({ ...prev, name: data.commercial_name }));
+      if (data.document_number) setForm(prev => ({ ...prev, document_number: data.document_number }));
+      if (data.address) setForm(prev => ({ ...prev, address: data.address }));
+      if (data.ciudad) setForm(prev => ({ ...prev, city: data.ciudad }));
+      if (data.email) setForm(prev => ({ ...prev, email: data.email }));
+    } catch (err) {
+      alert('Error al procesar RUT: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setRutLoading(false);
+    }
+  };
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -227,6 +249,16 @@ export default function AdminBillers() {
 
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Nuevo Facturador">
         <form onSubmit={handleCreate} className="space-y-4">
+          <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-all"
+            onClick={() => rutInputRef.current?.click()}>
+            <input ref={rutInputRef} type="file" accept=".pdf" className="hidden"
+              onChange={e => { if (e.target.files[0]) handleRutUpload(e.target.files[0]); }} />
+            <div className="text-3xl mb-2">{rutLoading ? '⏳' : '📄'}</div>
+            <p className="text-sm text-gray-600 font-medium">
+              {rutLoading ? 'Procesando RUT...' : 'Cargar RUT para autocompletar'}
+            </p>
+            <p className="text-xs text-gray-400 mt-1">PDF — extrae razón social, NIT, dirección y ciudad</p>
+          </div>
           <CreateEditForm form={form} setForm={setForm} />
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setShowCreate(false)}>Cancelar</Button>
