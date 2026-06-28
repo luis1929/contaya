@@ -61,7 +61,7 @@ export default function Facturas() {
     }
   }, [filters]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const handleYearChange = (val) => {
     if (val === 'todos') {

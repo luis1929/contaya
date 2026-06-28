@@ -52,7 +52,7 @@ export default function BillerFacturas() {
     }
   }, [filters]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const handleYearChange = (val) => {
     if (val === 'todos') {
