@@ -15,7 +15,7 @@ if [ ! -f backend/.env ]; then
   echo "   ⚠️  No existe backend/.env. Crealo manualmente con:"
   echo "      echo 'CREDENTIALS_ENCRYPTION_KEY=tu_clave' > backend/.env && chmod 600 backend/.env"
 else
-  chmod 600 backend/.env
+  sudo chmod 600 backend/.env
   echo "   .env encontrado y asegurado (chmod 600)"
 fi
 
