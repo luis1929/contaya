@@ -4,165 +4,154 @@ import { sleep } from '../browser.js';
 const BASE_URL = 'https://plataforma.facturatech.co/comprobantes21/';
 const parserCode = buildBrowserParser();
 
-const DOC_TYPES = [
-  { label: 'Facturas de Venta', tipo_nota: '', prefix: 'FV' },
-  { label: 'Notas de Crédito', tipo_nota: 'NC', prefix: 'NC' },
-  { label: 'Notas de Débito', tipo_nota: 'ND', prefix: 'ND' },
-];
+function detectDocType(ncf) {
+  if (!ncf) return 'FV';
+  const upper = ncf.toUpperCase();
+  if (upper.includes('NC') || upper.includes('CREDIT')) return 'NC';
+  if (upper.includes('ND') || upper.includes('DEBIT')) return 'ND';
+  return 'FV';
+}
 
 export async function extractInvoices(page, { maxPages = 15, pageSize = 100 } = {}) {
   console.log('[extract:invoices] Starting...');
 
   let idUs = null;
 
+  await page.goto(BASE_URL + '?se=15', { timeout: 30000, waitUntil: 'networkidle' });
+  await sleep(5000);
+
+  await page.selectOption('#registros', String(pageSize)).catch(() => {});
+  await sleep(2000);
+
   const allByNcf = new Map();
-  let docTypeIndex = 0;
+  let pageIndex = 0;
 
-  for (const docType of DOC_TYPES) {
-    console.log(`\n[extract:invoices] --- Type: ${docType.label} ---`);
-
-    await page.goto(BASE_URL + '?se=15', { timeout: 30000, waitUntil: 'networkidle' });
-    await sleep(5000);
-
-    await page.selectOption('#registros', String(pageSize)).catch(() => {});
-    await sleep(2000);
-
-    if (docType.tipo_nota) {
-      await page.selectOption('#tipo_nota', docType.tipo_nota).catch(() => {
-        console.log(`[extract:invoices] Warning: could not select tipo_nota=${docType.tipo_nota}`);
-      });
-      await sleep(3000);
-    }
-
-    let pageIndex = 0;
-
-    for (pageIndex = 0; pageIndex < maxPages; pageIndex++) {
-      const pageData = await page.evaluate(`
-        ${parserCode}
-        (function() {
-          var tables = document.querySelectorAll('table');
-          var target = null;
-          for (var t = 0; t < tables.length; t++) {
-            var text = tables[t].textContent.toLowerCase();
-            if (tables[t].querySelectorAll('tr').length > 3 &&
-                (text.indexOf('numeracion') !== -1 || text.indexOf('numeraci') !== -1) &&
-                text.indexOf('cliente') !== -1) {
-              target = tables[t];
-              break;
-            }
-          }
-          if (!target) return null;
-
-          var headers = [];
-          var headerRow = target.querySelector('thead tr');
-          if (!headerRow) {
-            var allRows = target.querySelectorAll('tbody tr, thead tr');
-            if (allRows.length === 0) allRows = target.querySelectorAll('tr');
-            if (allRows.length > 0 && isHeaderRow(allRows[0])) {
-              headerRow = allRows[0];
-            }
-          }
-          if (headerRow) {
-            headerRow.querySelectorAll('th, td').forEach(function(cell) {
-              headers.push(normalizeHeader(cell.textContent.trim()));
-            });
-          }
-
-          var rows = target.querySelectorAll('tbody tr');
-          if (rows.length === 0) rows = target.querySelectorAll('tr');
-
-          var dataRows = [];
-          var startIndex = (rows.length > 0 && isHeaderRow(rows[0])) ? 1 : 0;
-
-          for (var r = startIndex; r < rows.length; r++) {
-            var row = rows[r];
-            var cells = row.querySelectorAll('td');
-            if (cells.length === 0) continue;
-
-            var entry = {};
-            var isEmpty = true;
-
-            for (var i = 0; i < cells.length; i++) {
-              var val = cells[i].textContent.trim();
-              if (headers[i]) {
-                entry[headers[i]] = val;
-              } else if (i < headers.length) {
-                entry[headers[i]] = val;
-              } else {
-                entry['col_' + i] = val;
-              }
-              if (val) isEmpty = false;
-            }
-
-            // Extract internal id from action buttons
-            var anchor = row.querySelector('a[id="generar_nota"]');
-            if (anchor) {
-              var idComp = anchor.getAttribute('id_comprobante');
-              if (idComp) entry._internal_id = idComp.trim();
-              var folio = anchor.getAttribute('folio');
-              if (folio) entry._folio = folio;
-              var prefijo = anchor.getAttribute('prefijo');
-              if (prefijo) entry._prefijo = prefijo;
-            }
-
-            // Extract XML download IDs
-            var xmlLink = row.querySelector('a[href*="tipo=xml"]');
-            if (xmlLink) {
-              var href = xmlLink.getAttribute('href');
-              var idMatch = href.match(/idCom=(\d+)/);
-              if (idMatch) entry._id_comprobante = idMatch[1];
-              var usMatch = href.match(/idUs=(\d+)/);
-              if (usMatch) entry._id_us = usMatch[1];
-            }
-
-            if (!isEmpty) dataRows.push(entry);
-          }
-
-          return { headers: headers, rows: dataRows };
-        })()
-      `);
-
-      if (!pageData || !pageData.rows || pageData.rows.length === 0) {
-        console.log(`[extract:invoices] ${docType.label} Page ${pageIndex + 1}: no data`);
-        break;
-      }
-
-      // Extract idUs from any row that has it
-      if (!idUs) {
-        for (const row of pageData.rows) {
-          if (row._id_us) {
-            idUs = row._id_us;
+  for (pageIndex = 0; pageIndex < maxPages; pageIndex++) {
+    const pageData = await page.evaluate(`
+      ${parserCode}
+      (function() {
+        var tables = document.querySelectorAll('table');
+        var target = null;
+        for (var t = 0; t < tables.length; t++) {
+          var text = tables[t].textContent.toLowerCase();
+          if (tables[t].querySelectorAll('tr').length > 3 &&
+              (text.indexOf('numeracion') !== -1 || text.indexOf('numeraci') !== -1) &&
+              text.indexOf('cliente') !== -1) {
+            target = tables[t];
             break;
           }
         }
-      }
+        if (!target) return null;
 
-      let newCount = 0;
+        var headers = [];
+        var headerRow = target.querySelector('thead tr');
+        if (!headerRow) {
+          var allRows = target.querySelectorAll('tbody tr, thead tr');
+          if (allRows.length === 0) allRows = target.querySelectorAll('tr');
+          if (allRows.length > 0 && isHeaderRow(allRows[0])) {
+            headerRow = allRows[0];
+          }
+        }
+        if (headerRow) {
+          headerRow.querySelectorAll('th, td').forEach(function(cell) {
+            headers.push(normalizeHeader(cell.textContent.trim()));
+          });
+        }
+
+        var rows = target.querySelectorAll('tbody tr');
+        if (rows.length === 0) rows = target.querySelectorAll('tr');
+
+        var dataRows = [];
+        var startIndex = (rows.length > 0 && isHeaderRow(rows[0])) ? 1 : 0;
+
+        for (var r = startIndex; r < rows.length; r++) {
+          var row = rows[r];
+          var cells = row.querySelectorAll('td');
+          if (cells.length === 0) continue;
+
+          var entry = {};
+          var isEmpty = true;
+
+          for (var i = 0; i < cells.length; i++) {
+            var val = cells[i].textContent.trim();
+            if (headers[i]) {
+              entry[headers[i]] = val;
+            } else if (i < headers.length) {
+              entry[headers[i]] = val;
+            } else {
+              entry['col_' + i] = val;
+            }
+            if (val) isEmpty = false;
+          }
+
+          // Extract internal id from action buttons
+          var anchor = row.querySelector('a[id="generar_nota"]');
+          if (anchor) {
+            var idComp = anchor.getAttribute('id_comprobante');
+            if (idComp) entry._internal_id = idComp.trim();
+            var folio = anchor.getAttribute('folio');
+            if (folio) entry._folio = folio;
+            var prefijo = anchor.getAttribute('prefijo');
+            if (prefijo) entry._prefijo = prefijo;
+          }
+
+          // Extract XML download IDs
+          var xmlLink = row.querySelector('a[href*="tipo=xml"]');
+          if (xmlLink) {
+            var href = xmlLink.getAttribute('href');
+            var idMatch = href.match(/idCom=(\d+)/);
+            if (idMatch) entry._id_comprobante = idMatch[1];
+            var usMatch = href.match(/idUs=(\d+)/);
+            if (usMatch) entry._id_us = usMatch[1];
+          }
+
+          if (!isEmpty) dataRows.push(entry);
+        }
+
+        return { headers: headers, rows: dataRows };
+      })()
+    `);
+
+    if (!pageData || !pageData.rows || pageData.rows.length === 0) {
+      console.log(`[extract:invoices] Page ${pageIndex + 1}: no data`);
+      break;
+    }
+
+    // Extract idUs from any row that has it
+    if (!idUs) {
       for (const row of pageData.rows) {
-        const key = row.ncf || `${docType.prefix}-${pageIndex}-${Math.random().toString(36).slice(2, 6)}`;
-        const enriched = {
-          ...row,
-          _doc_type_label: docType.label,
-          _doc_type_prefix: docType.prefix,
-        };
-        if (!allByNcf.has(key)) {
-          allByNcf.set(key, enriched);
-          newCount++;
+        if (row._id_us) {
+          idUs = row._id_us;
+          break;
         }
       }
-
-      console.log(`[extract:invoices] ${docType.label} Page ${pageIndex + 1}: ${pageData.rows.length} rows, ${newCount} new (total: ${allByNcf.size}), headers: [${pageData.headers.join(', ')}]`);
-
-      const hasNext = await page.evaluate(hasNextPageScript());
-      if (!hasNext) break;
-
-      await page.click('a:has-text("Siguiente")');
-      await sleep(5000);
     }
+
+    let newCount = 0;
+    for (const row of pageData.rows) {
+      const key = row.ncf || `inv-${pageIndex}-${Math.random().toString(36).slice(2, 6)}`;
+      const docType = detectDocType(row.ncf);
+      const enriched = {
+        ...row,
+        _doc_type: docType,
+      };
+      if (!allByNcf.has(key)) {
+        allByNcf.set(key, enriched);
+        newCount++;
+      }
+    }
+
+    console.log(`[extract:invoices] Page ${pageIndex + 1}: ${pageData.rows.length} rows, ${newCount} new (total: ${allByNcf.size}), headers: [${pageData.headers.join(', ')}]`);
+
+    const hasNext = await page.evaluate(hasNextPageScript());
+    if (!hasNext) break;
+
+    await page.click('a:has-text("Siguiente")');
+    await sleep(5000);
   }
 
   const result = Array.from(allByNcf.values());
-  console.log(`[extract:invoices] Done: ${result.length} invoices across all types`);
+  console.log(`[extract:invoices] Done: ${result.length} invoices`);
   if (idUs) console.log(`[extract:invoices] FacturaTech user ID (idUs): ${idUs}`);
   return result;
 }
