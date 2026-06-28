@@ -52,7 +52,7 @@ export default function Facturas() {
       setInvoices(data);
       setPage(1);
 
-      const total = data.reduce((s, inv) => s + (inv.total || 0), 0);
+      const total = data.reduce((s, inv) => s + Number(inv.total || 0), 0);
       setStats({ total, count: data.length, iva: total * 0.19 });
     } catch {
       setInvoices([]);

@@ -43,7 +43,7 @@ export default function BillerFacturas() {
       setInvoices(data);
       setPage(1);
 
-      const total = data.reduce((s, inv) => s + (inv.total || 0), 0);
+      const total = data.reduce((s, inv) => s + Number(inv.total || 0), 0);
       setStats({ total, count: data.length, iva: total * 0.19, subtotal: total / 1.19 });
     } catch (err) {
       console.error(err);
@@ -177,8 +177,8 @@ export default function BillerFacturas() {
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-500">{inv.created_at?.slice(0, 10)}</td>
                       <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">{fmt(inv.total)}</td>
-                      <td className="px-4 py-3 text-sm text-primary font-medium text-right">{fmt(inv.total * 0.19)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500 text-right">{fmt(inv.total / 1.19)}</td>
+                      <td className="px-4 py-3 text-sm text-primary font-medium text-right">{fmt(Number(inv.total || 0) * 0.19)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500 text-right">{fmt(Number(inv.total || 0) / 1.19)}</td>
                       <td className="px-4 py-3 text-center">
                         <Badge color={inv.status === 'Firmado' ? 'success' : inv.status === 'Anulado' ? 'danger' : 'warning'}>
                           {inv.status}
@@ -212,15 +212,15 @@ export default function BillerFacturas() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Total</span>
-                  <span className="font-semibold text-gray-900">{fmt(inv.total)}</span>
+                  <span className="font-semibold text-gray-900">{fmt(Number(inv.total))}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">IVA</span>
-                  <span className="text-primary font-medium">{fmt(inv.total * 0.19)}</span>
+                  <span className="text-primary font-medium">{fmt(Number(inv.total || 0) * 0.19)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Subtotal</span>
-                  <span className="text-gray-700">{fmt(inv.total / 1.19)}</span>
+                  <span className="text-gray-700">{fmt(Number(inv.total || 0) / 1.19)}</span>
                 </div>
                 {inv.client_email && <p className="text-xs text-gray-400">{inv.client_email}</p>}
               </div>
