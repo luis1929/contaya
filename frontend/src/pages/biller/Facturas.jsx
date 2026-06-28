@@ -9,10 +9,22 @@ function fmt(n) {
   return '$' + Number(n).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function yearRange(year) {
+  return { desde: `${year}-01-01`, hasta: today() };
+}
+
+const currentYear = new Date().getFullYear();
+const years = Array.from({ length: currentYear - 2023 }, (_, i) => 2024 + i).reverse();
+
 export default function BillerFacturas() {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ desde: '', hasta: '', cliente: '', estatus: '' });
+  const [filters, setFilters] = useState({ ...yearRange(currentYear), cliente: '', estatus: '' });
+  const [selectedYear, setSelectedYear] = useState(currentYear);
   const [stats, setStats] = useState({ total: 0, count: 0, iva: 0, subtotal: 0 });
   const [viewerId, setViewerId] = useState(null);
   const [page, setPage] = useState(1);
@@ -41,6 +53,17 @@ export default function BillerFacturas() {
   }, [filters]);
 
   useEffect(() => { load(); }, []);
+
+  const handleYearChange = (val) => {
+    if (val === 'todos') {
+      setSelectedYear('todos');
+      setFilters(prev => ({ ...prev, desde: '', hasta: '' }));
+    } else {
+      const year = Number(val);
+      setSelectedYear(year);
+      setFilters(prev => ({ ...prev, ...yearRange(year) }));
+    }
+  };
 
   const totalPages = Math.ceil(invoices.length / perPage);
   const current = invoices.slice((page - 1) * perPage, page * perPage);
@@ -76,7 +99,15 @@ export default function BillerFacturas() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 p-5 grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="bg-white rounded-xl border border-gray-200 p-5 grid grid-cols-1 md:grid-cols-6 gap-4">
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Año</label>
+          <select value={selectedYear} onChange={e => handleYearChange(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/40">
+            {years.map(y => <option key={y} value={y}>{y}</option>)}
+            <option value="todos">Todos los años</option>
+          </select>
+        </div>
         {['desde', 'hasta', 'cliente', 'estatus'].map(field => (
           <div key={field} className="space-y-1.5">
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -100,7 +131,7 @@ export default function BillerFacturas() {
         ))}
         <div className="flex items-end gap-2">
           <Button onClick={load}>🔍 Filtrar</Button>
-          <Button variant="secondary" onClick={() => { setFilters({ desde: '', hasta: '', cliente: '', estatus: '' }); }}>
+          <Button variant="secondary" onClick={() => { setFilters({ ...yearRange(currentYear), cliente: '', estatus: '' }); setSelectedYear(currentYear); }}>
             Limpiar
           </Button>
         </div>
