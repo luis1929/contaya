@@ -29,7 +29,7 @@ async function decryptCredentials(billerId) {
 
 module.exports = {
   list: asyncHandler(async (req, res) => {
-    const { desde, hasta, cliente, estatus, facturador } = req.query;
+    const { desde, hasta, cliente, estatus, facturador, client_id } = req.query;
     let sql = 'SELECT i.*, b.name AS biller_name FROM invoices i LEFT JOIN billers b ON i.biller_id = b.id WHERE 1=1';
     const params = [];
     if (desde) { params.push(desde); sql += ` AND i.created_at >= $${params.length}`; }
@@ -37,6 +37,7 @@ module.exports = {
     if (cliente) { params.push(`%${cliente}%`); sql += ` AND (i.client_name ILIKE $${params.length} OR i.client ILIKE $${params.length})`; }
     if (estatus) { params.push(estatus); sql += ` AND i.status = $${params.length}`; }
     if (facturador) { params.push(facturador); sql += ` AND i.biller_id = $${params.length}::uuid`; }
+    if (client_id) { params.push(client_id); sql += ` AND i.client_id = $${params.length}::uuid`; }
     sql += whereBiller(req, params, 'i');
     sql += ' ORDER BY i.created_at DESC NULLS LAST';
     const { rows } = await pool.query(sql, params);
