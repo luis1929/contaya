@@ -1,27 +1,32 @@
 # Contaya
 
-Plataforma contable multi-tenant para gestión de facturación electrónica, clientes y documentos.
+Plataforma contable multi-tenant para gestión de facturación electrónica, clientes, documentos y sincronización automática con FacturaTech.
 
 ## Tech Stack
 
 | Capa | Tecnología |
 |------|-----------|
-| **Frontend** | React 19, React Router 7, Vite 8, Axios |
+| **Frontend** | React 19, React Router 7, Vite 8, Axios, Tailwind CSS |
 | **Backend** | Node.js, Express 5, pg (node-postgres) |
 | **Base de datos** | PostgreSQL + Supabase schema |
 | **Auth** | JWT (jsonwebtoken), bcryptjs |
 | **Uploads** | Multer 2 (PDF, JPG, PNG, CSV, XLSX) |
+| **Scraper** | Playwright (headless Chromium), PDF parsing |
 | **Infra** | Oracle Cloud VM (Ubuntu), nginx, systemd, Cloudflare Tunnel |
 
-### Características Frontend Actualizadas
+### Características Implementadas
 
 | Característica | Estado | Descripción |
 |---------|--------|-------------|
-| **Paleta de Colores Facturatec** | ✅ Implementado | Colores institucionales unificados: azul oscuro (#062A51), azul de acento (#2563eb), fondo gris claro (#f4f6f9) |
-| **Enlace Dashboard en Navegación** | ✅ Implementado | Acceso rápido al panel principal desde cualquier página |
-| **Efectos Hover y Transiciones** | ✅ Implementado | Animaciones suaves y consistentes en todos los elementos interactivos |
-| **Estilo Consistente Multi-Página** | ✅ Implementado | Todos los módulos (Dashboard, Facturas, Clientes, Admin, etc.) usan la misma identidad visual |
-| **Mejoras de Accesibilidad** | ✅ Implementado | Mejores contrastes y navegación lógica entre componentes |
+| **Paleta de Colores Facturatec** | ✅ | Colores institucionales unificados: azul oscuro (#062A51), azul de acento (#2563eb), fondo gris claro (#f4f6f9) |
+| **Enlace Dashboard en Navegación** | ✅ | Acceso rápido al panel principal desde cualquier página |
+| **Efectos Hover y Transiciones** | ✅ | Animaciones suaves y consistentes en todos los elementos interactivos |
+| **Estilo Consistente Multi-Página** | ✅ | Todos los módulos (Dashboard, Facturas, Clientes, Admin, etc.) usan la misma identidad visual |
+| **Mejoras de Accesibilidad** | ✅ | Mejores contrastes y navegación lógica entre componentes |
+| **Diseño Responsive (Mobile)** | ✅ | Tablas convertidas a tarjetas en mobile, sidebar colapsable, navbar con menú hamburguesa |
+| **Sincronización FacturaTech** | ✅ | Scraper headless que extrae facturas, NC/ND, clientes, productos, detalle de líneas, XML/PDF |
+| **Carga de RUT (PDF)** | ✅ | Subir RUT en PDF, extracción automática de datos del cliente, autocompletado |
+| **Sincronización desde Cliente** | ✅ | Botón "Sincronizar con FacturaTech" en creación de cliente que dispara sync asíncrono |
 
 ## Arquitectura
 
@@ -40,18 +45,23 @@ Plataforma contable multi-tenant para gestión de facturación electrónica, cli
 │  backend/server.js (Express 5 - monolito)      │
 │  ├─ Auth (register, login, reset-password)    │
 │  ├─ Invoices (CRUD, summary, consolidated)    │
-│  ├─ Clients (CRUD con filtro multi-tenant)    │
-│  ├─ Billers (CRUD admin)                      │
+│  ├─ Clients (CRUD, upload-rut, sync)          │
+│  ├─ Billers (CRUD admin, sync, credentials)   │
 │  ├─ Documents (upload/list/delete)            │
+│  ├─ Items (CRUD)                              │
 │  ├─ Company (perfil empresa)                  │
 │  └─ Health check                              │
-└──────────────────┬────────────────────────────┘
-                   │
-┌──────────────────▼────────────────────────────┐
-│  PostgreSQL (contaya)                          │
-│  Tablas: users, billers, clients, invoices,    │
-│          invoice_items, documents              │
-└───────────────────────────────────────────────┘
+└──────────────┬──────────────────┬─────────────┘
+               │                  │
+┌──────────────▼─────┐  ┌────────▼─────────────┐
+│  scraper/           │  │  PostgreSQL           │
+│  index.js           │  │  Tablas: users,       │
+│  └ Playwright       │  │  billers, clients,    │
+│    (headless)       │  │  invoices,            │
+│  └ sync.sh          │  │  invoice_items,       │
+│  └ SPAWN desde API  │  │  items, documents,    │
+│    (child_process)  │  │  biller_credentials   │
+└─────────────────────┘  └───────────────────────┘
 ```
 
 ## Estructura del proyecto
@@ -59,24 +69,46 @@ Plataforma contable multi-tenant para gestión de facturación electrónica, cli
 ```
 contaya/
 ├── backend/
-│   ├── server.js        # API Express (único archivo con todas las rutas)
-│   └── uploads/         # Archivos subidos
+│   ├── server.js              # API Express (ruteo modular)
+│   ├── controllers/           # Lógica de rutas
+│   ├── middleware/             # Auth, RBAC, tenant context
+│   ├── routes/                # Rutas Express
+│   ├── services/              # RUT parser, crypto, audit
+│   ├── db/                    # Pool de conexión
+│   ├── lib/                   # Helpers (response, asyncHandler)
+│   └── uploads/               # Archivos subidos
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx      # Router con 11 rutas
-│   │   ├── services/    # api.js (axios con interceptor JWT)
+│   │   ├── App.jsx            # Router con 11+ rutas
+│   │   ├── services/api.js    # Axios con interceptor JWT
 │   │   ├── pages/
-│   │   │   ├── AdminDashboard.jsx  # Panel admin (lista billers, impersonar)
-│   │   │   ├── Dashboard.jsx       # Panel biller (con banner impersonación)
-│   │   │   ├── Facturas.jsx        # Gestión de facturas
-│   │   │   ├── Clients.jsx         # Lista de clientes
+│   │   │   ├── admin/Dashboard.jsx, Billers.jsx, ...
+│   │   │   ├── biller/Dashboard.jsx, Facturas.jsx, Clients.jsx,
+│   │   │   │        Items.jsx, Declarations.jsx, RutUpload.jsx
 │   │   │   ├── Landing.jsx, Login.jsx, Register.jsx, ...
-│   │   │   └── CompanyPage.jsx
-│   │   └── components/  # Navbar, Hero, Features, etc.
-│   └── dist/            # Build de producción
-├── supabase-schema.sql  # Migración inicial
-├── deploy.sh            # Script de despliegue
-└── contaya-tunnel.yml   # Config Cloudflare Tunnel
+│   │   │   └── CompanyPage.jsx, InvoiceViewer.jsx
+│   │   ├── components/        # Navbar, Sidebar, MainLayout, UI
+│   │   └── layouts/           # MainLayout, AdminLayout
+│   └── dist/                  # Build de producción
+├── scraper/
+│   ├── index.js               # Entry point headless
+│   ├── sync.sh                # Script shell para sync
+│   ├── lib/
+│   │   ├── auth.js            # Login a FacturaTech
+│   │   ├── browser.js         # Sesión Playwright
+│   │   ├── sync.js            # Orquestación completa
+│   │   ├── parser.js          # Parseo de tablas HTML
+│   │   ├── persist.js         # Persistencia a PostgreSQL
+│   │   └── extractors/
+│   │       ├── invoices.js    # Facturas + NC/ND + detalle
+│   │       ├── clients.js     # Clientes
+│   │       ├── items.js       # Productos/servicios
+│   │       └── config.js      # Configuración del facturador
+│   └── migrate-sync.sql       # Migración scraper
+├── supabase-schema.sql         # Migración inicial
+├── deploy.sh                   # Script de despliegue
+├── contaya-tunnel.yml          # Config Cloudflare Tunnel
+└── AGENTS.md                   # Memoria del agente opencode
 ```
 
 ## Prerrequisitos
@@ -146,15 +178,25 @@ Crear `backend/.env`:
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
 | `GET` | `/api/clients` | JWT | Listar (admin: todos; con `?biller_id=` filtra) |
+| `POST` | `/api/clients` | JWT | Crear cliente |
+| `PUT` | `/api/clients/:id` | JWT | Actualizar cliente |
+| `DELETE` | `/api/clients/:id` | JWT | Eliminar cliente |
+| `POST` | `/api/clients/upload-rut` | JWT | Subir RUT PDF → extrae datos automáticamente |
+| `POST` | `/api/clients/sync-facturatech` | JWT | Disparar sync asíncrono con FacturaTech |
 
 ### Facturadores (admin)
 
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
 | `GET` | `/api/billers` | JWT | Listar facturadores |
-| `POST` | `/api/billers` | JWT+Admin | Crear facturador |
+| `POST` | `/api/billers` | JWT+Admin | Crear facturador (con credenciales FacturaTech opcional) |
 | `PUT` | `/api/billers/:id` | JWT+Admin | Actualizar facturador |
 | `DELETE` | `/api/billers/:id` | JWT+Admin | Eliminar facturador |
+| `POST` | `/api/billers/:id/sync` | JWT+Admin | Iniciar sincronización FacturaTech para un facturador |
+| `GET` | `/api/billers/credentials/status` | JWT | Estado de las credenciales FacturaTech |
+| `POST` | `/api/billers/credentials` | JWT | Guardar/encriptar credenciales FacturaTech |
+| `DELETE` | `/api/billers/credentials` | JWT | Eliminar credenciales |
+| `GET` | `/api/billers/credentials/admin-list` | JWT+Admin | Listar credenciales (admin)
 
 ### Documentos
 
@@ -186,12 +228,16 @@ Crear `backend/.env`:
 | `/login` | Login | Público |
 | `/register` | Registro admin | Público |
 | `/forgot-password` | Recuperar contraseña | Público |
-| `/admin` | AdminDashboard | `role: 'admin'` (redirigido automáticamente tras login) |
-| `/dashboard` | Dashboard | `role: 'biller'` o impersonación |
+| `/admin` | Admin Dashboard | `role: 'admin'` |
+| `/admin/billers` | Gestión de facturadores | `role: 'admin'` |
+| `/dashboard` | Dashboard facturador | `role: 'biller'` o impersonación |
 | `/facturas` | Facturas | Autenticado |
+| `/facturas/:id` | Visor de factura | Autenticado |
 | `/clientes` | Clientes | Autenticado |
-| `/upload` | Subir documentos | Autenticado |
+| `/items` | Productos/Servicios | Autenticado |
 | `/declarations` | Declaraciones | Autenticado |
+| `/rut-upload` | Carga RUT + sincronizar FacturaTech | Autenticado |
+| `/upload` | Subir documentos | Autenticado |
 | `/company` | Perfil empresa | Autenticado |
 
 ## Modelo multi-tenant
@@ -231,16 +277,23 @@ El panel admin permite:
 
 ## Base de datos
 
-6 tablas en PostgreSQL:
+9 tablas en PostgreSQL:
 
 | Tabla | Propósito | Relación |
 |-------|-----------|----------|
 | `users` | Admins del sistema | — |
 | `billers` | Facturadores (multi-tenant) | `biller_id` FK en clients, invoices, documents |
+| `biller_credentials` | Credenciales FacturaTech encriptadas | FK → billers |
 | `clients` | Clientes por facturador | FK → billers |
-| `invoices` | Facturas electrónicas | FK → billers, clients; `raw_data` (jsonb) |
-| `invoice_items` | Líneas de factura | FK → invoices (CASCADE) |
+| `invoices` | Facturas electrónicas | FK → billers, clients; `raw_data` (jsonb), `payload` (jsonb) |
+| `invoice_items` | Líneas de factura (items, cantidades, precios) | FK → invoices (CASCADE) |
+| `items` | Catálogo de productos/servicios | FK → billers; code, unit_value, iva_percentage |
 | `documents` | Documentos subidos | FK → billers; `extracted_data` (jsonb) |
+| `migration_versions` | Control de migraciones | — |
+
+La tabla `items` incluye: `code`, `description`, `type` (producto/servicio), `unit_value`, `iva_percentage`, `retention_percentage`, `unspsc_code`, `is_active`.
+
+La tabla `invoice_items` incluye: `code`, `description`, `quantity`, `unit_price`, `iva_percentage`, `total`.
 
 ## Despliegue
 
@@ -262,3 +315,63 @@ El script:
 | nginx | `sudo systemctl reload nginx` |
 | Logs backend | `sudo journalctl -u contaya-api -f` |
 | Tunnel | `cloudflared tunnel run` (vía systemd) |
+
+## Scraper FacturaTech
+
+El scraper automatiza la extracción de datos desde `https://plataforma.facturatech.co/` usando Playwright (headless Chromium).
+
+### Qué extrae
+
+| Extracto | Descripción |
+|----------|-------------|
+| **Facturas** | Facturas de venta (FV), notas crédito (NC), notas débito (ND) con NCF, cliente, CUFE, total, estado |
+| **Detalle de facturas** | Líneas de cada factura (código, descripción, cantidad, precio unitario, IVA) + impuestos/retenciones |
+| **Clientes** | Nombre, NIT, email, teléfono, ciudad |
+| **Productos/Items** | Código, nombre, precio unitario, unidad, moneda, IVA |
+| **Configuración** | Razón social, NIT, email, dirección, actividades económicas |
+| **XML/PDF** | URLs de descarga de XML y PDF de cada factura |
+
+### Modos de ejecución
+
+```bash
+# Sync completo (facturas + clientes + items + detalle)
+cd scraper && bash sync.sh --user=USER --pass=PASS --biller-id=UUID
+
+# Solo extraer, sin persistir (guarda JSON)
+node index.js --user=USER --pass=PASS --biller-id=UUID --output=/tmp/sync.json
+
+# Extraer sin detalle de líneas (más rápido)
+node index.js --user=USER --pass=PASS --biller-id=UUID --details=false
+
+# Sync interactivo (usa .env)
+bash sync.sh
+```
+
+### Integración con API
+
+El backend dispara el scraper como proceso hijo (`child_process.spawn`, `detached: true`) cuando:
+- Se crea un facturador con credenciales FacturaTech
+- Se solicita `POST /api/billers/:id/sync`
+- Se solicita `POST /api/clients/sync-facturatech` (desde creación de cliente)
+
+### Credenciales
+
+Las credenciales de FacturaTech se almacenan en `biller_credentials` encriptadas con AES-256-CBC usando `CREDENTIALS_ENCRYPTION_KEY` (variable de entorno).
+
+### Pipeline de datos
+
+```
+FacturaTech (web)
+    │ Playwright headless
+    ▼
+scraper/lib/extractors/*.js
+    │ extracción → JSON
+    ▼
+scraper/lib/persist.js
+    │ INSERT/UPDATE en PostgreSQL
+    ▼
+Base de datos (contaya)
+    │ disponible via API REST
+    ▼
+Frontend React
+```
