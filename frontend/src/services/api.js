@@ -313,4 +313,30 @@ export const api = {
     const { data } = await client.post('/invoices/emitir', payload);
     return data;
   },
+
+  // Analytics
+  getTopProducts: async (params = {}) => {
+    const { data } = await client.get('/analytics/top-products', { params });
+    return data;
+  },
+  getProductClients: async (params = {}) => {
+    const { data } = await client.get('/analytics/product-clients', { params });
+    return data;
+  },
+  getMonthlySales: async (params = {}) => {
+    const { data } = await client.get('/analytics/monthly-sales', { params });
+    return data;
+  },
+  getClientProducts: async (params = {}) => {
+    const { data } = await client.get('/analytics/client-products', { params });
+    return data;
+  },
+  getProductRelations: async (params = {}) => {
+    const { data } = await client.get('/analytics/product-relations', { params });
+    return data;
+  },
+  getAnalyticsStats: async () => {
+    const { data } = await client.get('/analytics/stats');
+    return data;
+  },
 };

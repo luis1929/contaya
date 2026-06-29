@@ -266,4 +266,21 @@ module.exports = {
     audit.log(req, { action: 'create', resource: 'invoices', resource_id: invoice.id, details: { client: client.name, items: lineItems.length, total: grandTotal } });
     success(res, { invoice, consolidated, credentials_configured: !!creds });
   }),
+
+  extractItems: asyncHandler(async (req, res) => {
+    const billerId = req.billerId;
+    if (!billerId) return badRequest(res, 'biller_id no disponible');
+
+    const creds = await decryptCredentials(billerId);
+    if (!creds) return badRequest(res, 'No hay credenciales configuradas para este facturador');
+
+    const extractorPath = path.join(__dirname, '../../scraper/extract-items.js');
+    const child = spawn('node', [extractorPath, `--biller-id=${billerId}`], {
+      env: { ...process.env, FACTURATECH_USER: creds.username, FACTURATECH_PASS: creds.password },
+      detached: true, stdio: 'ignore',
+    });
+    child.unref();
+
+    success(res, { message: 'Extracción de items iniciada en segundo plano' });
+  }),
 };

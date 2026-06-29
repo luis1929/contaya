@@ -15,6 +15,7 @@ const billerLinks = [
   { to: '/credentials', label: 'FacturaTech', icon: '🔐' },
   { to: '/rut-upload', label: 'Registro RUT', icon: '📇' },
   { to: '/items', label: 'Productos', icon: '📦' },
+  { to: '/analytics', label: 'Analítica', icon: '📊' },
 ];
 
 export default function Sidebar({ isAdmin, collapsed, onToggle, mobileOpen, onMobileClose }) {
