@@ -30,14 +30,14 @@ export default function BillerFacturas() {
   const [page, setPage] = useState(1);
   const perPage = 20;
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (filtersToApply) => {
     setLoading(true);
     try {
       const params = {};
-      if (filters.desde) params.desde = filters.desde;
-      if (filters.hasta) params.hasta = filters.hasta;
-      if (filters.cliente) params.cliente = filters.cliente;
-      if (filters.estatus) params.estatus = filters.estatus;
+      if (filtersToApply.desde) params.desde = filtersToApply.desde;
+      if (filtersToApply.hasta) params.hasta = filtersToApply.hasta;
+      if (filtersToApply.cliente) params.cliente = filtersToApply.cliente;
+      if (filtersToApply.estatus) params.estatus = filtersToApply.estatus;
 
       const data = await api.getInvoices(params);
       setInvoices(data);
@@ -50,19 +50,22 @@ export default function BillerFacturas() {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(filters); }, []);
 
   const handleYearChange = (val) => {
+    let newFilters;
     if (val === 'todos') {
       setSelectedYear('todos');
-      setFilters(prev => ({ ...prev, desde: '', hasta: '' }));
+      newFilters = { ...filters, desde: '', hasta: '' };
     } else {
       const year = Number(val);
       setSelectedYear(year);
-      setFilters(prev => ({ ...prev, ...yearRange(year) }));
+      newFilters = { ...filters, ...yearRange(year) };
     }
+    setFilters(newFilters);
+    load(newFilters);
   };
 
   const totalPages = Math.ceil(invoices.length / perPage);
@@ -130,8 +133,8 @@ export default function BillerFacturas() {
           </div>
         ))}
         <div className="flex items-end gap-2">
-          <Button onClick={load}>🔍 Filtrar</Button>
-          <Button variant="secondary" onClick={() => { setFilters({ ...yearRange(currentYear), cliente: '', estatus: '' }); setSelectedYear(currentYear); }}>
+          <Button onClick={() => load(filters)}>🔍 Filtrar</Button>
+          <Button variant="secondary" onClick={() => { const reset = { ...yearRange(currentYear), cliente: '', estatus: '' }; setFilters(reset); setSelectedYear(currentYear); load(reset); }}>
             Limpiar
           </Button>
         </div>
