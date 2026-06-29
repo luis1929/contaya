@@ -13,8 +13,17 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function firstOfMonth() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
 function yearRange(year) {
   return { desde: `${year}-01-01`, hasta: today() };
+}
+
+function monthRange() {
+  return { desde: firstOfMonth(), hasta: today() };
 }
 
 const currentYear = new Date().getFullYear();
@@ -23,11 +32,12 @@ const years = Array.from({ length: currentYear - 2023 }, (_, i) => 2024 + i).rev
 export default function BillerFacturas() {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ ...yearRange(currentYear), cliente: '', estatus: '' });
-  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [filters, setFilters] = useState({ ...monthRange(), cliente: '', estatus: '' });
+  const [selectedYear, setSelectedYear] = useState('mes');
   const [stats, setStats] = useState({ total: 0, count: 0, iva: 0, subtotal: 0 });
   const [viewerId, setViewerId] = useState(null);
   const [page, setPage] = useState(1);
+  const [clientList, setClientList] = useState([]);
   const perPage = 20;
 
   const load = useCallback(async (filtersToApply) => {
@@ -54,11 +64,20 @@ export default function BillerFacturas() {
 
   useEffect(() => { load(filters); }, []);
 
+  useEffect(() => {
+    api.getClients().then(data => {
+      setClientList(data);
+    }).catch(() => {});
+  }, []);
+
   const handleYearChange = (val) => {
     let newFilters;
     if (val === 'todos') {
       setSelectedYear('todos');
       newFilters = { ...filters, desde: '', hasta: '' };
+    } else if (val === 'mes') {
+      setSelectedYear('mes');
+      newFilters = { ...filters, ...monthRange() };
     } else {
       const year = Number(val);
       setSelectedYear(year);
@@ -107,6 +126,7 @@ export default function BillerFacturas() {
           <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Año</label>
           <select value={selectedYear} onChange={e => handleYearChange(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/40">
+            <option value="mes">Mes actual</option>
             {years.map(y => <option key={y} value={y}>{y}</option>)}
             <option value="todos">Todos los años</option>
           </select>
@@ -124,17 +144,22 @@ export default function BillerFacturas() {
                 <option value="Pendiente">Pendiente</option>
                 <option value="Anulado">Anulado</option>
               </select>
+            ) : field === 'cliente' ? (
+              <select value={filters.cliente} onChange={e => setFilters({ ...filters, cliente: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/40">
+                <option value="">Todos</option>
+                {clientList.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+              </select>
             ) : (
-              <input type={field === 'cliente' ? 'text' : 'date'}
+              <input type={'date'}
                 value={filters[field]} onChange={e => setFilters({ ...filters, [field]: e.target.value })}
-                placeholder={field === 'cliente' ? 'Buscar...' : ''}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
             )}
           </div>
         ))}
         <div className="flex items-end gap-2">
           <Button onClick={() => load(filters)}>🔍 Filtrar</Button>
-          <Button variant="secondary" onClick={() => { const reset = { ...yearRange(currentYear), cliente: '', estatus: '' }; setFilters(reset); setSelectedYear(currentYear); load(reset); }}>
+          <Button variant="secondary" onClick={() => { const reset = { ...monthRange(), cliente: '', estatus: '' }; setFilters(reset); setSelectedYear('mes'); load(reset); }}>
             Limpiar
           </Button>
         </div>
