@@ -8,7 +8,7 @@ Plataforma contable multi-tenant para gestión de facturación electrónica, cli
 |------|-----------|
 | **Frontend** | React 19, React Router 7, Vite 8, Axios, Tailwind CSS |
 | **Backend** | Node.js, Express 5, pg (node-postgres) |
-| **Base de datos** | PostgreSQL + Supabase schema |
+| **Base de datos** | PostgreSQL |
 | **Auth** | JWT (jsonwebtoken), bcryptjs |
 | **Uploads** | Multer 2 (PDF, JPG, PNG, CSV, XLSX) |
 | **Scraper** | Playwright (headless Chromium), PDF parsing |
@@ -105,7 +105,6 @@ contaya/
 │   │       ├── items.js       # Productos/servicios
 │   │       └── config.js      # Configuración del facturador
 │   └── migrate-sync.sql       # Migración scraper
-├── supabase-schema.sql         # Migración inicial
 ├── deploy.sh                   # Script de despliegue
 ├── contaya-tunnel.yml          # Config Cloudflare Tunnel
 └── AGENTS.md                   # Memoria del agente opencode
@@ -128,8 +127,6 @@ cd ../frontend && npm install
 
 ```bash
 # Base de datos
-psql -U contaya -d contaya -f supabase-schema.sql
-
 # Backend (puerto 3001)
 cd backend && npm run dev
 
