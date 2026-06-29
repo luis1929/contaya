@@ -21,7 +21,7 @@ export default function Register() {
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Error al registrarse'); return; }
       localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify({ ...data.user, role: 'admin' }));
+      localStorage.setItem('user', JSON.stringify(data.user));
       navigate('/admin');
     } catch { setError('Error de conexión'); }
     finally { setLoading(false); }

@@ -5,6 +5,12 @@
  */
 
 function billerContext(req, res, next) {
+  if (!req.user) {
+    // No authenticated user; treat as no biller context
+    req.billerId = null;
+    req.isAdmin = false;
+    return next();
+  }
   if (req.user.role === 'biller') {
     req.billerId = req.user.biller_id;
     req.isAdmin = false;

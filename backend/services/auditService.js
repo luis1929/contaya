@@ -18,7 +18,7 @@ function getIp(req) {
 }
 
 function extractActor(req) {
-  if (!req.user) return { actor_id: null, actor_name: null, actor_role: 'system' };
+  if (!req || !req.user) return { actor_id: null, actor_name: null, actor_role: 'system' };
   return {
     actor_id: req.user.id || req.user.biller_id || null,
     actor_name: req.user.email || req.user.name || null,
