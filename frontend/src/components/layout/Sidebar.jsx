@@ -8,8 +8,7 @@ const adminLinks = [
 ];
 
 const billerLinks = [
-  { to: '/facturacion', label: 'Facturación', icon: '🧾' },
-  { to: '/facturas', label: 'Historial', icon: '📄' },
+  { to: '/facturas', label: 'Doc-Facturas', icon: '📄' },
   { to: '/clientes', label: 'Clientes', icon: '👤' },
   { to: '/upload', label: 'Documentos', icon: '📁' },
   { to: '/declarations', label: 'Declaraciones', icon: '💰' },
