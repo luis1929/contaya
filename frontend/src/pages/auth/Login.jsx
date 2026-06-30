@@ -32,10 +32,11 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
+      // Send 'identifier' field (email value) to match backend unified auth pattern
       const res = await fetch('/api/auth/login-admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: form.email, password: form.password }),
+        body: JSON.stringify({ identifier: form.email, password: form.password }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Credenciales incorrectas'); return; }
@@ -50,10 +51,11 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
+      // Send 'identifier' field (NIT value) to match backend unified auth pattern
       const res = await fetch('/api/auth/login-cliente', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nit: form.nit, password: form.password_cliente }),
+        body: JSON.stringify({ identifier: form.nit, password: form.password_cliente }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Credenciales incorrectas'); return; }
