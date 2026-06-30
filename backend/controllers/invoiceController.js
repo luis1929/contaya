@@ -1,44 +1,75 @@
 const { parseString } = require('xml2js');
-const { spawn } = require('child_process');
-const path = require('path');
 const pool = require('../db/pool');
-const { success, created, badRequest, notFound, error } = require('../lib/response');
+const { success, created, badRequest, notFound } = require('../lib/response');
 const asyncHandler = require('../lib/asyncHandler');
 const { whereBiller } = require('../middleware/tenantContext');
-const crypto = require('../services/cryptoService');
-const audit = require('../services/auditService');
 
-function adjTotal(col = 'total') {
-  return `CASE WHEN doc_type IN ('NCR') THEN -${col} ELSE ${col} END`;
+function toArray(val) { return Array.isArray(val) ? val : val ? [val] : []; }
+function textVal(obj) { if (typeof obj === 'string') return obj; if (obj && typeof obj === 'object') return obj._ ?? ''; return ''; }
+function numVal(obj) { return parseFloat(textVal(obj)) || 0; }
+
+function parseXmlContent(xmlContent) {
+  return new Promise((resolve, reject) => {
+    parseString(xmlContent, { explicitArray: false, mergeAttrs: true }, (err, result) => {
+      if (err) reject(err);
+      else resolve(result);
+    });
+  });
 }
 
-async function decryptCredentials(billerId) {
-  const { rows } = await pool.query(
-    'SELECT username_encrypted, password_encrypted FROM biller_credentials WHERE biller_id = $1 AND is_configured = true',
-    [billerId]
-  );
-  if (!rows.length) return null;
-  try {
+function extractInvoiceLines(invoice) {
+  if (!invoice?.['cac:InvoiceLine']) return [];
+  return toArray(invoice['cac:InvoiceLine']).map(line => {
+    const item = line['cac:Item'] || {};
+    const note = line['cbc:Note'];
+    const description = textVal(
+      (Array.isArray(note) ? note[0] : note)
+      || item['cbc:Description']
+      || line['cbc:Description']
+    );
+    const code = textVal(
+      item['cac:SellersItemIdentification']?.['cbc:ID']
+      || item['cac:StandardItemIdentification']?.['cbc:ID']
+    );
+    const taxSubtotal = line?.['cac:TaxTotal']?.['cac:TaxSubtotal'];
+    const taxCategory = taxSubtotal?.['cac:TaxCategory'];
     return {
-      username: crypto.decrypt(rows[0].username_encrypted),
-      password: crypto.decrypt(rows[0].password_encrypted),
+      code,
+      description,
+      quantity: numVal(line['cbc:InvoicedQuantity']),
+      unitPrice: numVal(line?.['cac:Price']?.['cbc:PriceAmount']),
+      ivaPercent: numVal(taxCategory?.['cbc:Percent'] || taxSubtotal?.['cbc:Percent']),
+      taxAmount: numVal(taxSubtotal?.['cbc:TaxAmount'] || line?.['cac:TaxTotal']?.['cbc:TaxAmount']),
+      total: numVal(line['cbc:LineExtensionAmount']),
     };
-  } catch {
-    return null;
+  });
+}
+
+async function parseInvoiceLines(xmlContent) {
+  const result = await parseXmlContent(xmlContent);
+  if (result?.Invoice?.['cac:InvoiceLine']) return extractInvoiceLines(result.Invoice);
+  if (result?.AttachedDocument) {
+    const doc = result.AttachedDocument;
+    const innerXml = doc?.['cac:Attachment']?.['cac:ExternalReference']?.['cbc:Description']
+                  || doc?.['cac:Attachment']?.['cac:EmbeddedDocument']?.['cbc:Description']
+                  || doc?.['cbc:Description'];
+    if (innerXml && typeof innerXml === 'string' && innerXml.includes('<Invoice')) {
+      return parseInvoiceLines(innerXml);
+    }
   }
+  if (result?.Invoice) return extractInvoiceLines(result.Invoice);
+  return [];
 }
 
 module.exports = {
   list: asyncHandler(async (req, res) => {
-    const { desde, hasta, cliente, estatus, facturador, client_id } = req.query;
-    let sql = 'SELECT i.*, b.name AS biller_name FROM invoices i LEFT JOIN billers b ON i.biller_id = b.id WHERE 1=1';
+    const { desde, hasta, estatus, facturador } = req.query;
+    let sql = 'SELECT i.id, i.biller_id, i.ncf, i.status, i.has_xml, i.has_pdf, i.created_at, b.name AS biller_name FROM invoices i LEFT JOIN billers b ON i.biller_id = b.id WHERE 1=1';
     const params = [];
     if (desde) { params.push(desde); sql += ` AND i.created_at >= $${params.length}`; }
     if (hasta) { params.push(hasta); sql += ` AND i.created_at <= $${params.length}`; }
-    if (cliente) { params.push(`%${cliente}%`); sql += ` AND (i.client_name ILIKE $${params.length} OR i.client ILIKE $${params.length})`; }
     if (estatus) { params.push(estatus); sql += ` AND i.status = $${params.length}`; }
     if (facturador) { params.push(facturador); sql += ` AND i.biller_id = $${params.length}::uuid`; }
-    if (client_id) { params.push(client_id); sql += ` AND i.client_id = $${params.length}::uuid`; }
     sql += whereBiller(req, params, 'i');
     sql += ' ORDER BY i.created_at DESC NULLS LAST';
     const { rows } = await pool.query(sql, params);
@@ -47,11 +78,8 @@ module.exports = {
 
   summary: asyncHandler(async (req, res) => {
     const { desde, hasta, facturador } = req.query;
-    let sql = `SELECT COUNT(*) AS total_count, COALESCE(SUM(${adjTotal()}), 0) AS total_sum,
-      COALESCE(SUM(${adjTotal()}) * 0.19, 0) AS iva_sum, AVG(${adjTotal()}) AS total_avg,
-      MIN(created_at) AS first_date, MAX(created_at) AS last_date,
-      COUNT(*) FILTER (WHERE paid = true) AS paid_count,
-      COALESCE(SUM(${adjTotal()}) FILTER (WHERE paid = true), 0) AS paid_sum
+    let sql = `SELECT COUNT(*) AS total_count,
+      MIN(created_at) AS first_date, MAX(created_at) AS last_date
       FROM invoices WHERE 1=1`;
     const params = [];
     if (desde) { params.push(desde); sql += ` AND created_at >= $${params.length}`; }
@@ -64,8 +92,7 @@ module.exports = {
 
   summaryByBiller: asyncHandler(async (req, res) => {
     const { desde, hasta } = req.query;
-    let sql = `SELECT biller_id, COUNT(*) AS total_count, COALESCE(SUM(${adjTotal()}), 0) AS total_sum
-               FROM invoices WHERE biller_id IS NOT NULL`;
+    let sql = 'SELECT biller_id, COUNT(*) AS total_count FROM invoices WHERE biller_id IS NOT NULL';
     const params = [];
     if (desde) { params.push(desde); sql += ` AND created_at >= $${params.length}`; }
     if (hasta) { params.push(hasta); sql += ` AND created_at <= $${params.length}`; }
@@ -75,61 +102,25 @@ module.exports = {
     success(res, rows);
   }),
 
-  clientsByBiller: asyncHandler(async (req, res) => {
-    let billerId = req.query.biller_id;
-    if (!req.isAdmin) billerId = req.billerId;
-    if (!billerId) return badRequest(res, 'biller_id required');
-    const { rows } = await pool.query(`
-      SELECT COALESCE(client_name, 'Sin nombre') AS name, COUNT(*)::int AS invoice_count,
-        SUM(${adjTotal()}) AS total_sum, MIN(created_at) AS first_date, MAX(created_at) AS last_date
-      FROM invoices WHERE biller_id = $1::uuid AND client_name IS NOT NULL
-      GROUP BY client_name ORDER BY COUNT(*) DESC
-    `, [billerId]);
-    success(res, rows);
-  }),
-
   create: asyncHandler(async (req, res) => {
-    const { client_name, client_id, ncf, doc_type, total, paid, status, items, raw_data } = req.body;
-    if (!client_name) return badRequest(res, 'client_name es requerido');
+    const { ncf, status } = req.body;
     const bid = req.isAdmin ? (req.body.biller_id || req.billerId) : req.billerId;
     if (!bid) return badRequest(res, 'biller_id es requerido');
     const { rows } = await pool.query(
-      `INSERT INTO invoices (biller_id, client_id, client_name, ncf, doc_type, total, paid, status, raw_data)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [bid, client_id || null, client_name, ncf || null, doc_type || null, total || 0, paid || false, status || 'pending',
-       raw_data ? JSON.stringify(raw_data) : null]
+      `INSERT INTO invoices (biller_id, ncf, status)
+       VALUES ($1, $2, $3) RETURNING *`,
+      [bid, ncf || null, status || 'pending']
     );
-    if (items && items.length) {
-      for (const item of items) {
-        // Use 'total' column for line total; accept both 'total' and 'amount' from request
-        const lineTotal = item.total || item.amount || 0;
-        await pool.query(
-          'INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, total) VALUES ($1,$2,$3,$4,$5)',
-          [rows[0].id, item.description, item.quantity || 1, item.unit_price || 0, lineTotal]
-        );
-      }
-    }
     created(res, rows[0]);
   }),
 
   update: asyncHandler(async (req, res) => {
-    const { client_name, client_id, ncf, doc_type, total, paid, status, items, raw_data } = req.body;
-    let sql = 'UPDATE invoices SET client_name=$1, client_id=$2, ncf=$3, doc_type=$4, total=$5, paid=$6, status=$7, raw_data=$8, updated_at=NOW() WHERE id=$9';
-    const params = [client_name, client_id || null, ncf || null, doc_type || null, total || 0,
-      paid || false, status || 'pending', raw_data ? JSON.stringify(raw_data) : null, req.params.id];
+    const { ncf, status } = req.body;
+    let sql = 'UPDATE invoices SET ncf=$1, status=$2 WHERE id=$3';
+    const params = [ncf || null, status || 'pending', req.params.id];
     if (!req.isAdmin) { sql += ` AND biller_id = $${params.length + 1}::uuid`; params.push(req.billerId); }
     const { rowCount } = await pool.query(sql, params);
     if (!rowCount) return notFound(res);
-    if (items) {
-      await pool.query('DELETE FROM invoice_items WHERE invoice_id = $1', [req.params.id]);
-      for (const item of items) {
-        const lineTotal = item.total || item.amount || 0;
-        await pool.query(
-          'INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, total) VALUES ($1,$2,$3,$4,$5)',
-          [req.params.id, item.description, item.quantity || 1, item.unit_price || 0, lineTotal]
-        );
-      }
-    }
     const { rows } = await pool.query('SELECT * FROM invoices WHERE id = $1', [req.params.id]);
     success(res, rows[0]);
   }),
@@ -143,19 +134,6 @@ module.exports = {
     success(res, { message: 'Deleted' });
   }),
 
-  consolidated: asyncHandler(async (req, res) => {
-    let billerId = req.query.biller_id;
-    if (!req.isAdmin) billerId = req.billerId;
-    if (!billerId) return badRequest(res, 'biller_id required');
-    const { rows } = await pool.query(`
-      SELECT EXTRACT(YEAR FROM created_at)::int AS year, COALESCE(client_name, 'Sin nombre') AS client_name,
-        COUNT(*)::int AS invoice_count, SUM(${adjTotal()}) AS total_sum
-      FROM invoices WHERE biller_id = $1::uuid AND client_name IS NOT NULL
-      GROUP BY year, client_name ORDER BY year DESC, SUM(${adjTotal()}) DESC
-    `, [billerId]);
-    success(res, rows);
-  }),
-
   getById: asyncHandler(async (req, res) => {
     const { rows } = await pool.query(
       `SELECT i.*, b.name AS biller_name, b.document_number AS biller_doc_number
@@ -163,247 +141,15 @@ module.exports = {
       [req.params.id]
     );
     if (!rows.length) return notFound(res);
-    const items = await pool.query(
-      'SELECT * FROM invoice_items WHERE invoice_id = $1 ORDER BY created_at',
-      [req.params.id]
-    );
-    success(res, { ...rows[0], items: items.rows });
-  }),
-
-  emitir: asyncHandler(async (req, res) => {
-    const billerId = req.user.biller_id || req.billerId;
-    if (!billerId) return badRequest(res, 'biller_id no disponible');
-
-    const { client_id, items } = req.body;
-    if (!client_id) return badRequest(res, 'Selecciona un cliente');
-    if (!items || !items.length) return badRequest(res, 'Agrega al menos un ítem');
-
-    const { rows: [client] } = await pool.query('SELECT * FROM clients WHERE id = $1 AND biller_id = $2', [client_id, billerId]);
-    if (!client) return notFound(res, 'Cliente no encontrado');
-
-    const itemIds = items.map(i => i.item_id || i.id);
-    const { rows: productRows } = await pool.query(
-      'SELECT * FROM items WHERE id = ANY($1::uuid[]) AND biller_id = $2',
-      [itemIds, billerId]
-    );
-    const productMap = {};
-    for (const p of productRows) productMap[p.id] = p;
-
-    const lineItems = [];
-    let subtotal = 0;
-    let totalIva = 0;
-    let totalRetenciones = 0;
-
-    for (const entry of items) {
-      const pid = entry.item_id || entry.id;
-      const product = productMap[pid];
-      if (!product) continue;
-      const qty = parseFloat(entry.quantity) || 1;
-      // Use unit_price if available, fallback to unit_value (legacy column name)
-      const unitPrice = parseFloat(product.unit_price ?? product.unit_value) || 0;
-      const ivaPct = parseFloat(product.iva_percentage) || 0;
-      const retPct = parseFloat(product.retention_percentage) || 0;
-      const lineTotal = qty * unitPrice;
-      const lineIva = lineTotal * (ivaPct / 100);
-      const lineRet = lineTotal * (retPct / 100);
-      subtotal += lineTotal;
-      totalIva += lineIva;
-      totalRetenciones += lineRet;
-
-      lineItems.push({
-        item_id: pid,
-        code: product.code,
-        description: product.description,
-        quantity: qty,
-        unit_price: unitPrice,
-        iva_percentage: ivaPct,
-        retention_percentage: retPct,
-        total: lineTotal,
-      });
-    }
-
-    const grandTotal = subtotal + totalIva - totalRetenciones;
-
-    const creds = await decryptCredentials(billerId);
-
-    const consolidated = {
-      emisor: { biller_id: billerId, credentials_configured: !!creds },
-      cliente: {
-        id: client.id,
-        name: client.name,
-        document_type: client.document_type || 'NIT',
-        document_number: client.document_number,
-        verification_digit: client.verification_digit,
-        address: client.address,
-        ciudad: client.ciudad || client.city,
-        email: client.email,
-        phone: client.phone,
-        regimen: client.regimen,
-      },
-      items: lineItems,
-      totals: { subtotal, iva: totalIva, retenciones: totalRetenciones, total: grandTotal },
-    };
-
-    const { rows: [invoice] } = await pool.query(
-      `INSERT INTO invoices (biller_id, client_id, client_name, total, status, payload, raw_data)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-      [billerId, client_id, client.name, grandTotal, 'draft',
-       JSON.stringify(consolidated), consolidated]
-    );
-
-    for (const li of lineItems) {
-      await pool.query(
-        'INSERT INTO invoice_items (invoice_id, item_id, code, description, quantity, unit_price, iva_percentage, retention_percentage, total) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-        [invoice.id, li.item_id, li.code, li.description, li.quantity, li.unit_price, li.iva_percentage, li.retention_percentage, li.total]
-      );
-    }
-
-    if (creds) {
-      const scraperPath = path.join(__dirname, '../../scraper/index.js');
-      const child = spawn('node', [scraperPath, `--biller-id=${billerId}`], {
-        env: { ...process.env, FACTURATECH_USER: creds.username, FACTURATECH_PASS: creds.password },
-        detached: true, stdio: 'ignore',
-      });
-      child.unref();
-      await pool.query("UPDATE invoices SET scraper_status = 'scraping' WHERE id = $1", [invoice.id]);
-    }
-
-    audit.log(req, { action: 'create', resource: 'invoices', resource_id: invoice.id, details: { client: client.name, items: lineItems.length, total: grandTotal } });
-    success(res, { invoice, consolidated, credentials_configured: !!creds });
-  }),
-
-  extractItems: asyncHandler(async (req, res) => {
-    const billerId = req.billerId;
-    if (!billerId) return badRequest(res, 'biller_id no disponible');
-
-    const creds = await decryptCredentials(billerId);
-    if (!creds) return badRequest(res, 'No hay credenciales configuradas para este facturador');
-
-    const extractorPath = path.join(__dirname, '../../scraper/extract-items.js');
-    const child = spawn('node', [extractorPath, `--biller-id=${billerId}`], {
-      env: { ...process.env, FACTURATECH_USER: creds.username, FACTURATECH_PASS: creds.password },
-      detached: true, stdio: 'ignore',
-    });
-    child.unref();
-
-    success(res, { message: 'Extracción de items iniciada en segundo plano' });
-  }),
-
-  // --- Helpers for XML parsing ---
-
-  _toArray(val) {
-    return Array.isArray(val) ? val : val ? [val] : [];
-  },
-
-  _textVal(obj) {
-    if (typeof obj === 'string') return obj;
-    if (obj && typeof obj === 'object') return obj._ ?? '';
-    return '';
-  },
-
-  _numVal(obj) {
-    return parseFloat(this._textVal(obj)) || 0;
-  },
-
-  _parseXmlContent(xmlContent) {
-    return new Promise((resolve, reject) => {
-      parseString(xmlContent, { explicitArray: false, mergeAttrs: true }, (err, result) => {
-        if (err) reject(err);
-        else resolve(result);
-      });
-    });
-  },
-
-  _extractInvoiceLines(invoice) {
-    if (!invoice?.['cac:InvoiceLine']) return [];
-    const arr = this._toArray(invoice['cac:InvoiceLine']);
-    return arr.map(line => {
-      const item = line['cac:Item'] || {};
-      const note = line['cbc:Note'];
-      const description = this._textVal(
-        (Array.isArray(note) ? note[0] : note)
-        || item['cbc:Description']
-        || line['cbc:Description']
-      );
-      const code = this._textVal(
-        item['cac:SellersItemIdentification']?.['cbc:ID']
-        || item['cac:StandardItemIdentification']?.['cbc:ID']
-      );
-      const taxSubtotal = line?.['cac:TaxTotal']?.['cac:TaxSubtotal'];
-      const taxCategory = taxSubtotal?.['cac:TaxCategory'];
-
-      return {
-        code,
-        description,
-        quantity: this._numVal(line['cbc:InvoicedQuantity']),
-        unitPrice: this._numVal(line?.['cac:Price']?.['cbc:PriceAmount']),
-        ivaPercent: this._numVal(taxCategory?.['cbc:Percent'] || taxSubtotal?.['cbc:Percent']),
-        taxAmount: this._numVal(taxSubtotal?.['cbc:TaxAmount'] || line?.['cac:TaxTotal']?.['cbc:TaxAmount']),
-        total: this._numVal(line['cbc:LineExtensionAmount']),
-      };
-    });
-  },
-
-  async _parseInvoiceLines(xmlContent) {
-    const result = await this._parseXmlContent(xmlContent);
-    if (result?.Invoice?.['cac:InvoiceLine']) return this._extractInvoiceLines(result.Invoice);
-    if (result?.AttachedDocument) {
-      const doc = result.AttachedDocument;
-      const innerXml = doc?.['cac:Attachment']?.['cac:ExternalReference']?.['cbc:Description']
-                    || doc?.['cac:Attachment']?.['cac:EmbeddedDocument']?.['cbc:Description']
-                    || doc?.['cbc:Description'];
-      if (innerXml && typeof innerXml === 'string' && innerXml.includes('<Invoice')) {
-        return this._parseInvoiceLines(innerXml);
-      }
-    }
-    if (result?.Invoice) return this._extractInvoiceLines(result.Invoice);
-    return [];
-  },
-
-  backfillInvoiceItems: asyncHandler(async (req, res) => {
-    const billerFilter = req.billerId ? 'AND i.biller_id = $1' : '';
-    const params = req.billerId ? [req.billerId] : [];
-
-    const { rows: invoices } = await pool.query(`
-      SELECT i.id, i.ncf, i.xml_content, b.name AS biller
-      FROM invoices i
-      JOIN billers b ON b.id = i.biller_id
-      WHERE i.xml_content IS NOT NULL
-        AND i.xml_content != ''
-        AND NOT EXISTS (
-          SELECT 1 FROM invoice_items ii WHERE ii.invoice_id = i.id
-        )
-        ${billerFilter}
-      ORDER BY i.biller_id, i.created_at
-    `, params);
-
-    let processed = 0, totalLines = 0, errors = 0;
-
-    const ctrl = req.controller || this;
-
-    for (const inv of invoices) {
+    const row = rows[0];
+    let items = [];
+    if (row.xml_content) {
       try {
-        const lines = await ctrl._parseInvoiceLines(inv.xml_content);
-        if (!lines.length) continue;
-
-        await pool.query('DELETE FROM invoice_items WHERE invoice_id=$1', [inv.id]);
-
-        for (const line of lines) {
-          await pool.query(
-            `INSERT INTO invoice_items (invoice_id, code, description, quantity, unit_price, iva_percentage, total)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [inv.id, line.code, line.description, line.quantity, line.unitPrice, line.ivaPercent, line.total]
-          );
-        }
-
-        processed++;
-        totalLines += lines.length;
-      } catch (err) {
-        errors++;
-        console.error(`[backfill] Error ${inv.ncf}: ${err.message}`);
+        items = await parseInvoiceLines(row.xml_content);
+      } catch (e) {
+        console.error('Error parsing XML for invoice', row.id);
       }
     }
-
-    success(res, { processed, totalLines, errors });
+    success(res, { ...row, items });
   }),
 };

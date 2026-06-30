@@ -1,34 +1,28 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../services/api';
-import Badge from '../../components/ui/Badge';
-import StatsCard from '../../components/ui/StatsCard';
 
 export default function BillerClients() {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [backfilling, setBackfilling] = useState(false);
-  const [backfillResult, setBackfillResult] = useState(null);
 
   useEffect(() => {
-    api.getClients()
-      .then(setClients)
+    api.getInvoices()
+      .then(invoices => {
+        const map = {};
+        invoices.forEach(inv => {
+          const name = inv.client || inv.client_name;
+          if (name) {
+            map[name] = (map[name] || 0) + 1;
+          }
+        });
+        const sorted = Object.entries(map)
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count);
+        setClients(sorted);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
-
-  const handleBackfill = async () => {
-    if (backfilling) return;
-    setBackfilling(true);
-    setBackfillResult(null);
-    try {
-      const res = await api.backfillInvoiceItems();
-      setBackfillResult(res);
-    } catch (err) {
-      setBackfillResult({ error: err.message });
-    } finally {
-      setBackfilling(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -44,38 +38,10 @@ export default function BillerClients() {
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Clientes</h2>
           {clients.length > 0 && (
-            <p className="text-gray-500 mt-1">{clients.length} clientes registrados</p>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleBackfill}
-            disabled={backfilling}
-            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {backfilling ? (
-              <span className="flex items-center gap-2">
-                <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-                Procesando...
-              </span>
-            ) : 'Reprocesar XMLs'}
-          </button>
-          {backfillResult && (
-            <span className={`text-sm font-medium ${backfillResult.error ? 'text-red-600' : 'text-green-600'}`}>
-              {backfillResult.error
-                ? `Error: ${backfillResult.error}`
-                : `${backfillResult.processed} facturas, ${backfillResult.totalLines} líneas`
-              }
-            </span>
+            <p className="text-gray-500 mt-1">{clients.length} clientes encontrados</p>
           )}
         </div>
       </div>
-
-      {clients.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <StatsCard label="Total Clientes" value={clients.length} icon="👥" color="primary" />
-        </div>
-      )}
 
       {clients.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
@@ -89,30 +55,16 @@ export default function BillerClients() {
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Cliente</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">NIT</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Email</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Ciudad</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Régimen</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Facturas</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {clients.map((client, i) => (
-                  <tr key={client.id} className="hover:bg-gray-50 transition-colors fade-in" style={{ animationDelay: `${i * 0.03}s` }}>
+                  <tr key={client.name} className="hover:bg-gray-50 transition-colors fade-in" style={{ animationDelay: `${i * 0.03}s` }}>
                     <td className="px-4 py-3">
                       <span className="font-medium text-gray-900">{client.name}</span>
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-600">
-                      {client.document || '—'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {client.email || '—'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {client.ciudad || '—'}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {client.regimen ? <Badge color="info">{client.regimen}</Badge> : '—'}
-                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 text-right">{client.count}</td>
                   </tr>
                 ))}
               </tbody>

@@ -37,7 +37,6 @@ export default function BillerFacturas() {
   const [stats, setStats] = useState({ total: 0, count: 0, iva: 0, subtotal: 0 });
   const [viewerId, setViewerId] = useState(null);
   const [page, setPage] = useState(1);
-  const [clientList, setClientList] = useState([]);
   const perPage = 20;
 
   const load = useCallback(async (filtersToApply) => {
@@ -63,12 +62,6 @@ export default function BillerFacturas() {
   }, []);
 
   useEffect(() => { load(filters); }, []);
-
-  useEffect(() => {
-    api.getClients().then(data => {
-      setClientList(data);
-    }).catch(() => {});
-  }, []);
 
   const handleYearChange = (val) => {
     let newFilters;
@@ -145,11 +138,9 @@ export default function BillerFacturas() {
                 <option value="Anulado">Anulado</option>
               </select>
             ) : field === 'cliente' ? (
-              <select value={filters.cliente} onChange={e => setFilters({ ...filters, cliente: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/40">
-                <option value="">Todos</option>
-                {clientList.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-              </select>
+              <input type="text" placeholder="Buscar cliente..."
+                value={filters.cliente} onChange={e => setFilters({ ...filters, cliente: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
             ) : (
               <input type={'date'}
                 value={filters[field]} onChange={e => setFilters({ ...filters, [field]: e.target.value })}

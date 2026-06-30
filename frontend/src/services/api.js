@@ -148,28 +148,6 @@ export const api = {
     return data;
   },
 
-  // Clients
-  getClients: async () => {
-    const { data } = await client.get('/clients');
-    return data;
-  },
-  createClient: async (payload) => {
-    const { data } = await client.post('/clients', payload);
-    return data;
-  },
-  syncClientFacturatech: async (payload) => {
-    const { data } = await client.post('/clients/sync-facturatech', payload);
-    return data;
-  },
-  updateClient: async (id, payload) => {
-    const { data } = await client.put(`/clients/${id}`, payload);
-    return data;
-  },
-  deleteClient: async (id) => {
-    const { data } = await client.delete(`/clients/${id}`);
-    return data;
-  },
-
   // Billers
   getBillers: async () => {
     const { data } = await client.get('/billers');
@@ -249,10 +227,7 @@ export const api = {
     const { data } = await client.get('/admin/audit-stats');
     return data;
   },
-  backfillInvoiceItems: async () => {
-    const { data } = await client.post('/invoices/backfill-items');
-    return data;
-  },
+
   getSettings: async () => {
     const { data } = await client.get('/admin/settings');
     return data;
@@ -276,40 +251,6 @@ export const api = {
   },
   getAdminCredentialsList: async () => {
     const { data } = await client.get('/billers/credentials/admin-list');
-    return data;
-  },
-
-  uploadRut: async (file) => {
-    const form = new FormData();
-    form.append('file', file);
-    const { data } = await client.post('/clients/upload-rut', form);
-    return data;
-  },
-
-  getItems: async (params = {}) => {
-    const { data } = await client.get('/items', { params });
-    return data;
-  },
-  createItem: async (body) => {
-    const { data } = await client.post('/items', body);
-    return data;
-  },
-  updateItem: async (id, body) => {
-    const { data } = await client.put(`/items/${id}`, body);
-    return data;
-  },
-  deleteItem: async (id) => {
-    const { data } = await client.delete(`/items/${id}`);
-    return data;
-  },
-  previewItems: async (file) => {
-    const form = new FormData();
-    form.append('file', file);
-    const { data } = await client.post('/items/preview', form);
-    return data;
-  },
-  confirmItems: async (rows) => {
-    const { data } = await client.post('/items/confirm', { rows });
     return data;
   },
 

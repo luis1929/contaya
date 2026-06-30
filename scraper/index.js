@@ -1,8 +1,6 @@
 import { createPool, getBillers } from './lib/db.js';
 import { createAuthenticatedSession } from './lib/auth.js';
 import { closeSession, sleep } from './lib/browser.js';
-import { extractItems } from './lib/extractors/items.js';
-import { extractClients } from './lib/extractors/clients.js';
 import { extractInvoices } from './lib/extractors/invoices.js';
 import { persistAll } from './lib/persist.js';
 
@@ -30,19 +28,13 @@ async function processBiller(biller) {
       { headless: true, retries: 2 }
     );
 
-    console.log(`\n--- Extrayendo Items ---`);
-    const items = await extractItems(session.page);
-
-    console.log(`\n--- Extrayendo Clientes ---`);
-    const clients = await extractClients(session.page);
-
     console.log(`\n--- Extrayendo Comprobantes ---`);
     const invoices = await extractInvoices(session.page);
 
     await closeSession(session);
     session = null;
 
-    const syncResult = { items, clients, invoices };
+    const syncResult = { invoices };
 
     console.log(`\n--- Persistiendo en BD ---`);
     await persistAll(pool, syncResult, biller.id);
@@ -72,7 +64,7 @@ async function processBiller(biller) {
 }
 
 async function main() {
-  console.log('=== Contaya Scraper Unificado ===');
+  console.log('=== Contaya Scraper ===');
 
   const billers = await getBillers(pool);
   console.log(`Facturadores encontrados: ${billers.length}`);

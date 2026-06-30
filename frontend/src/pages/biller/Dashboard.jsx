@@ -3,11 +3,6 @@ import { api } from '../../services/api';
 import StatsCard from '../../components/ui/StatsCard';
 import Badge from '../../components/ui/Badge';
 
-function fmt(n) {
-  if (n == null) return '$0';
-  return '$' + Number(n).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
 export default function BillerDashboard() {
   const [invoices, setInvoices] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -35,11 +30,8 @@ export default function BillerDashboard() {
         <p className="text-gray-500 mt-1">{invoices.length} facturas encontradas</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard label="Total Facturado" value={summary?.total_sum} icon="💰" color="primary" format="currency" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <StatsCard label="Facturas" value={summary?.total_count} icon="📄" color="info" />
-        <StatsCard label="Promedio" value={summary?.total_avg} icon="📊" color="warning" format="currency" />
-        <StatsCard label="Pagadas" value={summary?.paid_count} icon="✅" color="success" />
       </div>
 
       {summary?.first_date && (
@@ -54,31 +46,19 @@ export default function BillerDashboard() {
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">NCF</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Cliente</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Fecha</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Total</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Estado</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Pagado</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {invoices.slice(0, 20).map((inv, i) => (
                 <tr key={inv.id} className="hover:bg-gray-50 transition-colors fade-in" style={{ animationDelay: `${i * 0.03}s` }}>
                   <td className="px-4 py-3 text-sm font-mono text-gray-700">{inv.ncf}</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">
-                    <div className="font-medium">{inv.client_name || (inv.client || '').split('...')[0]}</div>
-                  </td>
                   <td className="px-4 py-3 text-sm text-gray-500">{inv.created_at?.slice(0, 10)}</td>
-                  <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">{fmt(inv.total)}</td>
                   <td className="px-4 py-3 text-center">
                     <Badge color={inv.status === 'Firmado' ? 'success' : 'warning'}>
                       {inv.status}
                     </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-center text-sm">
-                    <span className={inv.paid ? 'text-success font-medium' : 'text-gray-400'}>
-                      {inv.paid ? 'Sí' : 'No'}
-                    </span>
                   </td>
                 </tr>
               ))}
@@ -95,20 +75,8 @@ export default function BillerDashboard() {
               <Badge color={inv.status === 'Firmado' ? 'success' : 'warning'}>{inv.status}</Badge>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Cliente</span>
-              <span className="font-medium text-gray-900 text-right">{inv.client_name || (inv.client || '').split('...')[0]}</span>
-            </div>
-            <div className="flex justify-between text-sm">
               <span className="text-gray-500">Fecha</span>
               <span className="text-gray-700">{inv.created_at?.slice(0, 10)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Total</span>
-              <span className="font-semibold text-gray-900">{fmt(inv.total)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Pagado</span>
-              <span className={inv.paid ? 'text-success font-medium' : 'text-gray-400'}>{inv.paid ? 'Sí' : 'No'}</span>
             </div>
           </div>
         ))}

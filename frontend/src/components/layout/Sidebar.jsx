@@ -9,12 +9,9 @@ const adminLinks = [
 
 const billerLinks = [
   { to: '/facturas', label: 'Doc-Facturas', icon: '📄' },
-  { to: '/clientes', label: 'Clientes', icon: '👤' },
   { to: '/upload', label: 'Documentos', icon: '📁' },
   { to: '/declarations', label: 'Declaraciones', icon: '💰' },
   { to: '/credentials', label: 'FacturaTech', icon: '🔐' },
-  { to: '/rut-upload', label: 'Registro RUT', icon: '📇' },
-  { to: '/items', label: 'Productos', icon: '📦' },
   { to: '/analytics', label: 'Analítica', icon: '📊' },
 ];
 
