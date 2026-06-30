@@ -83,7 +83,7 @@ module.exports = {
     if (desde) { params.push(desde); dateFilter += ` AND i.created_at >= $${params.length}`; }
     if (hasta) { params.push(hasta); dateFilter += ` AND i.created_at <= $${params.length}`; }
 
-    let sql = `SELECT i.id, i.client_name, i.xml_content FROM invoices i WHERE i.xml_content IS NOT NULL AND i.xml_content != '' ${dateFilter}`;
+    let sql = `SELECT i.id, i.xml_content FROM invoices i WHERE i.xml_content IS NOT NULL AND i.xml_content != '' ${dateFilter}`;
     sql += whereBiller(req, params, 'i');
 
     const { rows } = await pool.query(sql, params);
@@ -161,14 +161,23 @@ module.exports = {
     const params = [];
     let filters = '';
 
-    if (client) { params.push(`%${client}%`); filters += ` AND i.client_name ILIKE $${params.length}`; }
     if (year) { params.push(parseInt(year)); filters += ` AND EXTRACT(YEAR FROM i.created_at) = $${params.length}`; }
 
-    let sql = `SELECT i.id, i.created_at, i.client_name, i.xml_content FROM invoices i WHERE i.xml_content IS NOT NULL AND i.xml_content != '' ${filters}`;
+    let sql = `SELECT i.id, i.created_at, i.xml_content FROM invoices i WHERE i.xml_content IS NOT NULL AND i.xml_content != '' ${filters}`;
     sql += whereBiller(req, params, 'i');
     sql += ' ORDER BY i.created_at';
 
-    const { rows } = await pool.query(sql, params);
+    let { rows } = await pool.query(sql, params);
+
+    if (client) {
+      rows = (await Promise.all(rows.map(async row => {
+        try {
+          const data = await parseInvoiceData(row.xml_content);
+          return data.clientName.toLowerCase().includes(client.toLowerCase()) ? row : null;
+        } catch { return null; }
+      }))).filter(Boolean);
+    }
+
     const groups = {};
 
     for (const row of rows) {
@@ -210,15 +219,23 @@ module.exports = {
     const { client, desde, hasta } = req.query;
     if (!client) return badRequest(res, 'client is required');
 
-    const params = [`%${client}%`];
+    const params = [];
     let dateFilter = '';
     if (desde) { params.push(desde); dateFilter += ` AND i.created_at >= $${params.length}`; }
     if (hasta) { params.push(hasta); dateFilter += ` AND i.created_at <= $${params.length}`; }
 
-    let sql = `SELECT i.id, i.xml_content FROM invoices i WHERE i.client_name ILIKE $1 AND i.xml_content IS NOT NULL AND i.xml_content != '' ${dateFilter}`;
+    let sql = `SELECT i.id, i.xml_content FROM invoices i WHERE i.xml_content IS NOT NULL AND i.xml_content != '' ${dateFilter}`;
     sql += whereBiller(req, params, 'i');
 
-    const { rows } = await pool.query(sql, params);
+    let { rows } = await pool.query(sql, params);
+
+    rows = (await Promise.all(rows.map(async row => {
+      try {
+        const data = await parseInvoiceData(row.xml_content);
+        return data.clientName.toLowerCase().includes(client.toLowerCase()) ? row : null;
+      } catch { return null; }
+    }))).filter(Boolean);
+
     const groups = {};
 
     for (const row of rows) {
