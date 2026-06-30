@@ -1,95 +1,102 @@
-import pg from 'pg';
+import { createPool, getBillers } from './lib/db.js';
 import { createAuthenticatedSession } from './lib/auth.js';
 import { closeSession } from './lib/browser.js';
-import { fullSync } from './lib/sync.js';
+import { extractItems } from './lib/extractors/items.js';
+import { extractClients } from './lib/extractors/clients.js';
+import { extractInvoices } from './lib/extractors/invoices.js';
 import { persistAll } from './lib/persist.js';
 
-const { Pool } = pg;
-const pool = new Pool({
-  user: process.env.DB_USER || 'contaya',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'contaya',
-  password: process.env.DB_PASSWORD || 'contaya123',
-  port: parseInt(process.env.DB_PORT || '5432'),
-});
+const pool = createPool();
 
-function getArg(name) {
-  const arg = process.argv.find(a => a.startsWith(`--${name}=`));
-  return arg ? arg.split('=')[1] : null;
-}
+async function processBiller(biller) {
+  console.log(`\n${'='.repeat(60)}`);
+  console.log(`BILLER: ${biller.name} (${biller.document_number})`);
+  console.log(`${'='.repeat(60)}`);
 
-const USER = getArg('user') || process.env.FACTURATECH_USER || '72005672';
-const PASS = getArg('pass') || process.env.FACTURATECH_PASS || 'Ortega2026$';
-const BILLER_ID = getArg('biller-id') || null;
-const OUTPUT = getArg('output') || null;
-const WITH_DETAILS = getArg('details') === 'true';
-
-async function setScrapeStatus(status, errorMsg = null) {
-  if (!BILLER_ID) return;
-  try {
-    await pool.query(
-      `UPDATE billers SET scrape_status=$1, scrape_last_run=NOW(), scrape_error=$2 WHERE id=$3`,
-      [status, errorMsg, BILLER_ID]
-    );
-  } catch (e) {
-    console.error('[scraper] Failed to update scrape_status:', e.message);
+  if (!biller.password) {
+    console.log(`[skip] No credentials configured for ${biller.name}`);
+    return { error: 'no credentials' };
   }
-}
-
-async function scrape() {
-  console.log(`[scraper] Starting sync — user: ${USER}, biller: ${BILLER_ID || 'auto'}`);
 
   let session;
   try {
-    if (BILLER_ID) {
-      await setScrapeStatus('running');
-    }
+    await pool.query(
+      `UPDATE billers SET scrape_status='running', scrape_last_run=NOW() WHERE id=$1`,
+      [biller.id]
+    );
 
     session = await createAuthenticatedSession(
-      { username: USER, password: PASS },
+      { username: biller.username, password: biller.password },
       { headless: true, retries: 2 }
     );
 
-    const syncResult = await fullSync(session.page, { extractDetails: WITH_DETAILS });
+    console.log(`\n--- Extrayendo Items ---`);
+    const items = await extractItems(session.page);
 
-    if (OUTPUT) {
-      const fs = await import('fs');
-      const dir = OUTPUT.substring(0, OUTPUT.lastIndexOf('/'));
-      if (dir) fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(OUTPUT, JSON.stringify(syncResult, null, 2));
-      console.log(`[scraper] Output saved to ${OUTPUT}`);
-    }
+    console.log(`\n--- Extrayendo Clientes ---`);
+    const clients = await extractClients(session.page);
 
-    console.log('\n========== SYNC COMPLETE ==========');
-    for (const [key, val] of Object.entries(syncResult)) {
-      if (val && !val.error) {
-        console.log(`  ${key}: ${Array.isArray(val) ? val.length + ' registros' : 'OK'}`);
-      }
-      if (val && val.error) {
-        console.log(`  ${key}: ERROR — ${val.error}`);
-      }
-    }
+    console.log(`\n--- Extrayendo Comprobantes ---`);
+    const invoices = await extractInvoices(session.page);
 
-    if (BILLER_ID) {
-      await persistAll(pool, syncResult, BILLER_ID);
-    }
+    await closeSession(session);
+    session = null;
 
-    if (BILLER_ID) {
-      await setScrapeStatus('done');
-    }
-    console.log('[scraper] Done');
+    const syncResult = { items, clients, invoices };
+
+    console.log(`\n--- Persistiendo en BD ---`);
+    await persistAll(pool, syncResult, biller.id);
+
+    await pool.query(
+      `UPDATE billers SET scrape_status='done', scrape_error=NULL WHERE id=$1`,
+      [biller.id]
+    );
+
+    console.log(`[ok] ${biller.name} completado`);
+    return { ok: true };
   } catch (err) {
-    console.error('[scraper] Error:', err.message);
+    console.error(`[error] ${biller.name}: ${err.message}`);
     if (session?.page) {
-      await session.page.screenshot({ path: '/tmp/contaya/scraper_error.png' }).catch(() => {});
+      await session.page.screenshot({
+        path: `/tmp/contaya/error_${biller.document_number}.png`
+      }).catch(() => {});
     }
-    if (BILLER_ID) {
-      await setScrapeStatus('error', err.message);
-    }
+    await pool.query(
+      `UPDATE billers SET scrape_status='error', scrape_error=$1 WHERE id=$2`,
+      [err.message, biller.id]
+    );
+    return { error: err.message };
   } finally {
     if (session) await closeSession(session);
-    await pool.end().catch(() => {});
   }
 }
 
-scrape();
+async function main() {
+  console.log('=== Contaya Scraper Unificado ===');
+
+  const billers = await getBillers(pool);
+  console.log(`Facturadores encontrados: ${billers.length}`);
+  billers.forEach(b => console.log(`  - ${b.name} (${b.document_number})${b.password ? '' : ' [sin credenciales]'}`));
+
+  const results = [];
+  for (const biller of billers) {
+    const r = await processBiller(biller);
+    results.push(r);
+  }
+
+  console.log(`\n${'='.repeat(60)}`);
+  console.log('RESUMEN:');
+  billers.forEach((b, i) => {
+    const r = results[i];
+    const status = r?.ok ? 'OK' : `ERROR: ${r?.error || 'desconocido'}`;
+    console.log(`  ${b.name}: ${status}`);
+  });
+
+  await pool.end();
+  console.log('\n=== Scraper finalizado ===');
+}
+
+main().catch(err => {
+  console.error('[fatal]', err.message);
+  process.exit(1);
+});
