@@ -84,7 +84,7 @@ module.exports = {
     sql += whereBiller(req, params, 'i');
     sql += ' ORDER BY i.created_at DESC NULLS LAST';
     const { rows } = await pool.query(sql, params);
-    const enriched = rows.map(r => ({ ...r, client_name: extractClientName(r.xml_content || ''), xml_content: undefined }));
+    const enriched = rows.map(r => ({ ...r, client_name: extractClientName(r.xml_content || '') || r.client_name || '', xml_content: undefined }));
     success(res, enriched);
   }),
 
@@ -197,15 +197,7 @@ module.exports = {
     if (!rows.length) return notFound(res);
     const row = rows[0];
     let items = [];
-    let clientName = '';
-    let clientEmail = '';
-    let docTotal = 0;
-    let docSubtotal = 0;
-    let docIva = 0;
-    let issueDate = '';
-    let signatureDate = '';
-    let paymentMethod = '';
-    let notes = '';
+    let xmlClientName, xmlClientEmail, xmlTotal, xmlSubtotal, xmlIva, issueDate, signatureDate, paymentMethod, notes;
     if (row.xml_content) {
       try {
         const result = await parseXmlContent(row.xml_content);
@@ -219,28 +211,25 @@ module.exports = {
             items = await parseInvoiceLines(innerXml);
             const inv = inner?.Invoice;
             if (inv) {
-              clientName = textVal(inv['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:PartyName']?.['cbc:Name'])
+              xmlClientName = textVal(inv['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:PartyName']?.['cbc:Name'])
                 || textVal(inv['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:PartyLegalEntity']?.['cbc:RegistrationName']);
-              clientEmail = textVal(inv['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:Contact']?.['cbc:ElectronicMail']);
-              docTotal = numVal(inv['cac:LegalMonetaryTotal']?.['cbc:PayableAmount']);
-              docSubtotal = numVal(inv['cac:LegalMonetaryTotal']?.['cbc:LineExtensionAmount']);
+              xmlClientEmail = textVal(inv['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:Contact']?.['cbc:ElectronicMail']);
+              xmlTotal = numVal(inv['cac:LegalMonetaryTotal']?.['cbc:PayableAmount']);
+              xmlSubtotal = numVal(inv['cac:LegalMonetaryTotal']?.['cbc:LineExtensionAmount']);
               issueDate = textVal(inv['cbc:IssueDate']);
               signatureDate = textVal(inv['cac:Signature']?.['cbc:SignatureDate']) || textVal(inv['cac:Signature']?.['cbc:SignatureTime']);
               paymentMethod = textVal(inv['cac:PaymentMeans']?.['cbc:PaymentMeansCode']) || textVal(inv['cac:PaymentTerms']?.['cbc:Note']);
               notes = textVal(inv['cbc:Note']) || (Array.isArray(inv['cac:AdditionalDocumentReference']) ? inv['cac:AdditionalDocumentReference'].map(r => textVal(r['cbc:Description'])).join('; ') : textVal(inv['cac:AdditionalDocumentReference']?.['cbc:Description']));
             }
-            if (!docIva) docIva = items.reduce((s, it) => s + it.taxAmount, 0);
-            success(res, { ...row, items, client_name: clientName, client_email: clientEmail, total: docTotal, subtotal: docSubtotal, iva: docIva, issue_date: issueDate, signature_date: signatureDate, payment_method: paymentMethod, notes });
-            return;
           }
         }
         if (invoice) {
           items = extractInvoiceLines(invoice);
-          clientName = textVal(invoice['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:PartyName']?.['cbc:Name'])
+          xmlClientName = textVal(invoice['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:PartyName']?.['cbc:Name'])
             || textVal(invoice['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:PartyLegalEntity']?.['cbc:RegistrationName']);
-          clientEmail = textVal(invoice['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:Contact']?.['cbc:ElectronicMail']);
-          docTotal = numVal(invoice['cac:LegalMonetaryTotal']?.['cbc:PayableAmount']);
-          docSubtotal = numVal(invoice['cac:LegalMonetaryTotal']?.['cbc:LineExtensionAmount']);
+          xmlClientEmail = textVal(invoice['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:Contact']?.['cbc:ElectronicMail']);
+          xmlTotal = numVal(invoice['cac:LegalMonetaryTotal']?.['cbc:PayableAmount']);
+          xmlSubtotal = numVal(invoice['cac:LegalMonetaryTotal']?.['cbc:LineExtensionAmount']);
           issueDate = textVal(invoice['cbc:IssueDate']);
           signatureDate = textVal(invoice['cac:Signature']?.['cbc:SignatureDate']) || textVal(invoice['cac:Signature']?.['cbc:SignatureTime']);
           paymentMethod = textVal(invoice['cac:PaymentMeans']?.['cbc:PaymentMeansCode']) || textVal(invoice['cac:PaymentTerms']?.['cbc:Note']);
@@ -250,7 +239,18 @@ module.exports = {
         console.error('Error parsing XML for invoice', row.id);
       }
     }
-    if (!docIva) docIva = items.reduce((s, it) => s + it.taxAmount, 0);
-    success(res, { ...row, items, client_name: clientName, client_email: clientEmail, total: docTotal, subtotal: docSubtotal, iva: docIva, issue_date: issueDate, signature_date: signatureDate, payment_method: paymentMethod, notes });
+    xmlIva = items.reduce((s, it) => s + it.taxAmount, 0);
+    success(res, {
+      ...row, items,
+      client_name: xmlClientName || row.client_name || '',
+      client_email: xmlClientEmail || '',
+      total: xmlTotal || row.total || 0,
+      subtotal: xmlSubtotal || row.total || 0,
+      iva: xmlIva || 0,
+      issue_date: issueDate || '',
+      signature_date: signatureDate || '',
+      payment_method: paymentMethod || '',
+      notes: notes || '',
+    });
   }),
 };
