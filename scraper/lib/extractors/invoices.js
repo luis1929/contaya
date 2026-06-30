@@ -169,7 +169,10 @@ async function downloadXml(page, invoice) {
   const safeNcf = invoice.ncf.replace(/[^a-zA-Z0-9_-]/g, '_');
   const xmlPath = path.join(DOWNLOAD_DIR, `${safeNcf}.xml`);
 
-  if (fs.existsSync(xmlPath)) return;
+  if (fs.existsSync(xmlPath)) {
+    invoice._xml_path = xmlPath;
+    return;
+  }
 
   const xmlContent = await page.evaluate(async (url) => {
     const resp = await fetch(url);
