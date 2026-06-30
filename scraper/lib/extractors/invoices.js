@@ -85,7 +85,7 @@ export async function extractInvoices(page, { maxPages = 15 } = {}) {
           var xmlLink = row.querySelector('a[href*="tipo=xml"]');
           if (xmlLink) {
             var href = xmlLink.getAttribute('href');
-            entry._xml_url = href.startsWith('http') ? href : window.location.origin + '/' + href;
+            entry._xml_url = href.startsWith('http') ? href : new URL(href, window.location.href).href;
             var idMatch = href.match(/idCom=(\d+)/);
             if (idMatch) entry._id_comprobante = idMatch[1];
             var usMatch = href.match(/idUs=(\d+)/);
@@ -95,7 +95,7 @@ export async function extractInvoices(page, { maxPages = 15 } = {}) {
           var pdfLink = row.querySelector('a[href*="tipo=pdf"]');
           if (pdfLink) {
             var pdfHref = pdfLink.getAttribute('href');
-            entry._pdf_url = pdfHref.startsWith('http') ? pdfHref : window.location.origin + '/' + pdfHref;
+            entry._pdf_url = pdfHref.startsWith('http') ? pdfHref : new URL(pdfHref, window.location.href).href;
           }
 
           if (!isEmpty) dataRows.push(entry);
