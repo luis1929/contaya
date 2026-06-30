@@ -12,7 +12,7 @@ module.exports = {
     const { name, email, password } = req.body;
     if (!name || !email || !password) return badRequest(res, 'Faltan campos requeridos');
     const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
-    if (existing.rows.length) return conflict(res, 'El correo ya está registrado');
+    if (existing.rows.length) return badRequest(res, 'El correo ya está registrado');
     const hash = await bcrypt.hash(password, 10);
     const { rows } = await pool.query(
       'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email, created_at',
@@ -23,14 +23,21 @@ module.exports = {
   }),
 
   login: asyncHandler(async (req, res) => {
-    const { email, password } = req.body;
-    if (!email || !password) return badRequest(res, 'Faltan campos requeridos');
-    if (email.includes('@')) return module.exports.loginAdmin(req, res);
+    const { identifier, password } = req.body;
+    if (!identifier || !password) return badRequest(res, 'Identificador y contraseña requeridos');
+
+    // Admin login by email
+    if (identifier.includes('@')) {
+      return module.exports.loginAdmin(req, res);
+    }
+
+    // Biller login by NIT
     return module.exports.loginCliente(req, res);
   }),
 
   loginAdmin: asyncHandler(async (req, res) => {
-    const { email, password } = req.body;
+    const { identifier, password } = req.body;
+    const email = identifier; // For clarity
     if (!email || !password) return badRequest(res, 'Faltan campos requeridos');
     const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (!rows.length) return unauthorized(res, 'Credenciales inválidas');
@@ -43,20 +50,26 @@ module.exports = {
   }),
 
   loginCliente: asyncHandler(async (req, res) => {
-    const { nit, password } = req.body;
+    const { identifier, password } = req.body;
+    const nit = identifier; // For clarity
     if (!nit || !password) return badRequest(res, 'NIT y contraseña requeridos');
+    
+    // Try exact match first, then with check digit suffix (e.g., "900123456-1")
     let { rows: billers } = await pool.query('SELECT * FROM billers WHERE document_number = $1', [nit]);
     if (!billers.length) {
       billers = (await pool.query('SELECT * FROM billers WHERE document_number LIKE $1', [nit + '-%'])).rows;
     }
     if (!billers.length) return unauthorized(res, 'Credenciales inválidas');
+    
     const match = await bcrypt.compare(password, billers[0].password || '');
     if (!match) return unauthorized(res, 'Credenciales inválidas');
     if (billers[0].is_active === false) return forbidden(res, 'Cuenta desactivada. Contacte al administrador.');
+    
     const token = jwt.sign({
       biller_id: billers[0].id, name: billers[0].name,
       document_number: billers[0].document_number, role: 'biller'
     }, JWT_SECRET, { expiresIn: '7d' });
+    
     audit.logActivity({ actor_id: billers[0].id, actor_name: billers[0].name, actor_role: 'biller', action: 'login', resource: 'auth', details: { nit: billers[0].document_number }, ip_address: audit.getIp(req) });
     success(res, {
       user: { id: billers[0].id, name: billers[0].name, nit: billers[0].document_number, role: 'biller' }, token
