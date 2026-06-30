@@ -85,7 +85,7 @@ export async function extractInvoices(page, { maxPages = 15 } = {}) {
           var xmlLink = row.querySelector('a[href*="tipo=xml"]');
           if (xmlLink) {
             var href = xmlLink.getAttribute('href');
-            entry._xml_url = href.startsWith('http') ? href : 'https://plataforma.facturatech.co' + href;
+            entry._xml_url = href.startsWith('http') ? href : window.location.origin + '/' + href;
             var idMatch = href.match(/idCom=(\d+)/);
             if (idMatch) entry._id_comprobante = idMatch[1];
             var usMatch = href.match(/idUs=(\d+)/);
@@ -95,7 +95,7 @@ export async function extractInvoices(page, { maxPages = 15 } = {}) {
           var pdfLink = row.querySelector('a[href*="tipo=pdf"]');
           if (pdfLink) {
             var pdfHref = pdfLink.getAttribute('href');
-            entry._pdf_url = pdfHref.startsWith('http') ? pdfHref : 'https://plataforma.facturatech.co' + pdfHref;
+            entry._pdf_url = pdfHref.startsWith('http') ? pdfHref : window.location.origin + '/' + pdfHref;
           }
 
           if (!isEmpty) dataRows.push(entry);
@@ -171,22 +171,11 @@ async function downloadXml(page, invoice) {
 
   if (fs.existsSync(xmlPath)) return;
 
-  const response = await page.goto(invoice._xml_url, {
-    timeout: 30000,
-    waitUntil: 'domcontentloaded',
-  });
-
-  if (!response) throw new Error('No response from XML URL');
-
-  const contentType = response.headers()['content-type'] || '';
-  let xmlContent;
-
-  if (contentType.includes('xml') || contentType.includes('text')) {
-    xmlContent = await response.text();
-  } else {
-    const buffer = await response.body();
-    xmlContent = buffer.toString('utf8');
-  }
+  const xmlContent = await page.evaluate(async (url) => {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    return await resp.text();
+  }, invoice._xml_url);
 
   if (!xmlContent || xmlContent.length < 50) {
     throw new Error(`XML too short (${xmlContent?.length || 0} chars)`);
@@ -194,7 +183,4 @@ async function downloadXml(page, invoice) {
 
   fs.writeFileSync(xmlPath, xmlContent, 'utf8');
   invoice._xml_path = xmlPath;
-
-  await page.goBack({ timeout: 15000 }).catch(() => {});
-  await sleep(2000);
 }
