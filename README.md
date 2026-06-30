@@ -13,6 +13,7 @@ Plataforma contable multi-tenant para gestión de facturación electrónica, cli
 | **Uploads** | Multer 2 (PDF, JPG, PNG, CSV, XLSX) |
 | **Scraper** | Playwright (headless Chromium), PDF parsing |
 | **Infra** | Oracle Cloud VM (Ubuntu), nginx, systemd, Cloudflare Tunnel |
+| **IA** | NVIDIA Nemotron 3 Ultra, Mistral Ministral 14B, Gemma 4 31B (vía opencode) |
 
 ### Características Implementadas
 
@@ -27,6 +28,9 @@ Plataforma contable multi-tenant para gestión de facturación electrónica, cli
 | **Sincronización FacturaTech** | ✅ | Scraper headless que extrae facturas, NC/ND, clientes, productos, detalle de líneas, XML/PDF |
 | **Carga de RUT (PDF)** | ✅ | Subir RUT en PDF, extracción automática de datos del cliente, autocompletado |
 | **Sincronización desde Cliente** | ✅ | Botón "Sincronizar con FacturaTech" en creación de cliente que dispara sync asíncrono |
+| **Esquema BD Simplificado** | ✅ | Eliminadas tablas `clients`, `items`, `invoice_items`; `invoices` simplificada a columnas esenciales; datos desde XML on-the-fly |
+| **Filtro Cliente por Rango Fecha** | ✅ | Dropdown de clientes en Facturas con conteo, filtrado por rango de fechas seleccionado |
+| **Visor Factura Extendido** | ✅ | Muestra fecha firma, forma de pago, email, notas, fecha emisión extraídos del XML UBL |
 
 ## Arquitectura
 
@@ -48,7 +52,6 @@ Plataforma contable multi-tenant para gestión de facturación electrónica, cli
 │  ├─ Clients (CRUD, upload-rut, sync)          │
 │  ├─ Billers (CRUD admin, sync, credentials)   │
 │  ├─ Documents (upload/list/delete)            │
-│  ├─ Items (CRUD)                              │
 │  ├─ Company (perfil empresa)                  │
 │  └─ Health check                              │
 └──────────────┬──────────────────┬─────────────┘
@@ -56,11 +59,10 @@ Plataforma contable multi-tenant para gestión de facturación electrónica, cli
 ┌──────────────▼─────┐  ┌────────▼─────────────┐
 │  scraper/           │  │  PostgreSQL           │
 │  index.js           │  │  Tablas: users,       │
-│  └ Playwright       │  │  billers, clients,    │
-│    (headless)       │  │  invoices,            │
-│  └ sync.sh          │  │  invoice_items,       │
-│  └ SPAWN desde API  │  │  items, documents,    │
-│    (child_process)  │  │  biller_credentials   │
+│  └ Playwright       │  │  billers, invoices,   │
+│  └ sync.sh          │  │  documents,           │
+│  └ SPAWN desde API  │  │  biller_credentials   │
+│    (child_process)  │  │  (sin clients/items)  │
 └─────────────────────┘  └───────────────────────┘
 ```
 
@@ -167,19 +169,15 @@ Crear `backend/.env`:
 | `GET` | `/api/invoices` | JWT | Listar (admin: todas; con `?biller_id=` filtra) |
 | `GET` | `/api/invoices/summary` | JWT | Resumen (admin: global; con `?biller_id=` filtra) |
 | `GET` | `/api/invoices/summary-by-biller` | JWT | Resumen agrupado por facturador |
-| `GET` | `/api/invoices/clients-by-biller` | JWT | Clientes agrupados |
+| `GET` | `/api/invoices/client-list` | JWT | Lista de clientes únicos con conteo (filtra por `?desde=` `?hasta=`) |
 | `GET` | `/api/invoices/consolidated` | JWT | Datos consolidados anuales |
 
-### Clientes
+### Clientes (legacy — endpoints removidos)
 
-| Método | Ruta | Auth | Descripción |
-|--------|------|------|-------------|
-| `GET` | `/api/clients` | JWT | Listar (admin: todos; con `?biller_id=` filtra) |
-| `POST` | `/api/clients` | JWT | Crear cliente |
-| `PUT` | `/api/clients/:id` | JWT | Actualizar cliente |
-| `DELETE` | `/api/clients/:id` | JWT | Eliminar cliente |
-| `POST` | `/api/clients/upload-rut` | JWT | Subir RUT PDF → extrae datos automáticamente |
-| `POST` | `/api/clients/sync-facturatech` | JWT | Disparar sync asíncrono con FacturaTech |
+Los clientes ya no se almacenan en tabla propia. La información se extrae on-the-fly del XML de las facturas.
+- Endpoint disponible: `GET /api/invoices/client-list` (para dropdown filtro en Facturas)
+- Carga RUT: `POST /api/clients/upload-rut` (sube PDF → extrae datos y crea/actualiza cliente temporalmente)
+- Sync FacturaTech: `POST /api/clients/sync-facturatech`
 
 ### Facturadores (admin)
 
@@ -230,8 +228,8 @@ Crear `backend/.env`:
 | `/dashboard` | Dashboard facturador | `role: 'biller'` o impersonación |
 | `/facturas` | Facturas | Autenticado |
 | `/facturas/:id` | Visor de factura | Autenticado |
-| `/clientes` | Clientes | Autenticado |
-| `/items` | Productos/Servicios | Autenticado |
+| `/clientes` | Clientes (extraídos de facturas) | Autenticado |
+| `/items` | Productos (placeholder — sin tabla BD) | Autenticado |
 | `/declarations` | Declaraciones | Autenticado |
 | `/rut-upload` | Carga RUT + sincronizar FacturaTech | Autenticado |
 | `/upload` | Subir documentos | Autenticado |
@@ -274,23 +272,21 @@ El panel admin permite:
 
 ## Base de datos
 
-9 tablas en PostgreSQL:
+6 tablas en PostgreSQL (simplificadas tras migración):
 
 | Tabla | Propósito | Relación |
 |-------|-----------|----------|
 | `users` | Admins del sistema | — |
-| `billers` | Facturadores (multi-tenant) | `biller_id` FK en clients, invoices, documents |
+| `billers` | Facturadores (multi-tenant) | `biller_id` FK en invoices, documents |
 | `biller_credentials` | Credenciales FacturaTech encriptadas | FK → billers |
-| `clients` | Clientes por facturador | FK → billers |
-| `invoices` | Facturas electrónicas | FK → billers, clients; `raw_data` (jsonb), `payload` (jsonb) |
-| `invoice_items` | Líneas de factura (items, cantidades, precios) | FK → invoices (CASCADE) |
-| `items` | Catálogo de productos/servicios | FK → billers; code, unit_value, iva_percentage |
+| `invoices` | Facturas electrónicas | FK → billers; `xml_content` (text), `status`, `has_xml`, `has_pdf`, `created_at` |
 | `documents` | Documentos subidos | FK → billers; `extracted_data` (jsonb) |
 | `migration_versions` | Control de migraciones | — |
 
-La tabla `items` incluye: `code`, `description`, `type` (producto/servicio), `unit_value`, `iva_percentage`, `retention_percentage`, `unspsc_code`, `is_active`.
-
-La tabla `invoice_items` incluye: `code`, `description`, `quantity`, `unit_price`, `iva_percentage`, `total`.
+**Cambios clave en la migración:**
+- Eliminadas: `clients`, `items`, `invoice_items` (los datos ahora se extraen on-the-fly del XML en `invoices.xml_content`)
+- `invoices` simplificada: solo columnas esenciales (`id`, `biller_id`, `ncf`, `xml_content`, `status`, `has_xml`, `has_pdf`, `created_at`)
+- Analytics e InvoiceViewer parsen `xml_content` (UBL 2.1) para obtener: cliente, items, totales, fecha firma, forma de pago, email, notas
 
 ## Despliegue
 
@@ -372,3 +368,19 @@ Base de datos (contaya)
     ▼
 Frontend React
 ```
+
+## Configuración IA (opencode)
+
+Agentes configurados en `~/.config/opencode/opencode.json` con modelos NVIDIA (API compatible OpenAI en `https://integrate.api.nvidia.com/v1`):
+
+| Agente | Alias | Modelo | Uso |
+|--------|-------|--------|-----|
+| Build (default) | `@build` | `opencode/big-pickle` | Desarrollo general, edición de código |
+| Nemotron | `@nemotron` | `nvidia/nvidia/nemotron-3-ultra-550b-a55b` | Razonamiento profundo + escritura de código |
+| Plan | `@plan` | `nvidia/nvidia/nemotron-3-ultra-550b-a55b` | Solo lectura — arquitectura, debugging, análisis |
+| General | `@general` | `nvidia/mistralai/ministral-14b-instruct-2512` | Tareas rápidas, investigación, edits pequeños |
+| Explore | `@explore` | `nvidia/google/gemma-4-31b-it` | Búsqueda ligera en código, preguntas simples |
+
+Uso en opencode: `@nemotron refactoriza este servicio`, `@plan analiza esta arquitectura`, `@general busca dónde se usa X`, `@explore encuentra Y`.
+
+API Key NVIDIA en `opencode.json` → `provider.nvidia.options.apiKey` (o vía `opencode auth login -p nvidia`).
