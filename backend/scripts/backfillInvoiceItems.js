@@ -1,7 +1,17 @@
-const { Pool } = require('pg');
-const { parseString } = require('xml2js');
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+const { parseString } = require('xml2js');
+const { Pool } = require('pg');
+
+const pool = new Pool({
+  host: process.env.DB_HOST || 'localhost',
+  port: process.env.DB_PORT || 5432,
+  user: process.env.DB_USER || 'contaya',
+  password: process.env.DB_PASSWORD || 'contaya123',
+  database: process.env.DB_NAME || 'contaya',
+  connectionString: process.env.DATABASE_URL || undefined,
+});
 
 function toArray(val) {
   return Array.isArray(val) ? val : val ? [val] : [];
@@ -80,8 +90,6 @@ async function parseInvoiceLines(xmlContent) {
 }
 
 async function backfill() {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-
   console.log('Buscando facturas con XML sin procesar...');
   const { rows: invoices } = await pool.query(`
     SELECT i.id, i.ncf, i.xml_content, b.name AS biller
@@ -127,7 +135,6 @@ async function backfill() {
   }
 
   console.log(`\nResumen: ${processed} facturas procesadas, ${totalLines} líneas, ${errors} errores`);
-
   await pool.end();
 }
 
