@@ -53,12 +53,14 @@ export async function getBillers(pool) {
         console.error(`[db] Failed to decrypt credentials for ${row.name}: ${e.message}`);
       }
     }
+    const envUser = process.env[`FACTURATECH_USER_${row.document_number}`];
+    const envPass = process.env[`FACTURATECH_PASS_${row.document_number}`];
     return {
       id: row.id,
       name: row.name,
       document_number: row.document_number,
-      username: creds.username || row.document_number,
-      password: creds.password || null,
+      username: creds.username || envUser || row.document_number,
+      password: creds.password || envPass || null,
     };
   });
 }
