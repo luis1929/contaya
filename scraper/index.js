@@ -1,6 +1,6 @@
 import { createPool, getBillers } from './lib/db.js';
 import { createAuthenticatedSession } from './lib/auth.js';
-import { closeSession } from './lib/browser.js';
+import { closeSession, sleep } from './lib/browser.js';
 import { extractItems } from './lib/extractors/items.js';
 import { extractClients } from './lib/extractors/clients.js';
 import { extractInvoices } from './lib/extractors/invoices.js';
@@ -80,6 +80,7 @@ async function main() {
 
   const results = [];
   for (const biller of billers) {
+    await sleep(5000);
     const r = await processBiller(biller);
     results.push(r);
   }

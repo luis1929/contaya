@@ -62,12 +62,12 @@ export async function login(page, username, password, { retries = 2 } = {}) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     if (attempt > 1) {
       console.log(`[auth] Reintento ${attempt}/${retries}...`);
-      await page.goto(LOGIN_URL, { timeout: 20000, waitUntil: 'domcontentloaded' });
+      await page.goto(LOGIN_URL, { timeout: 30000, waitUntil: 'domcontentloaded' }).catch(() => null);
       await sleep(2000);
     }
 
-    await page.goto(LOGIN_URL, { timeout: 20000, waitUntil: 'domcontentloaded' });
-    await sleep(2000);
+    await page.goto(LOGIN_URL, { timeout: 30000, waitUntil: 'domcontentloaded' }).catch(() => null);
+    await sleep(3000);
 
     await attemptLogin(page, username, password);
 
