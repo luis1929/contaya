@@ -64,7 +64,7 @@ export default function Navbar() {
           {loggedIn ? (
             <button onClick={handleLogout}
               className="text-sm font-medium px-4 py-2 rounded-lg bg-transparent text-[#e74c3c] border-none font-semibold cursor-pointer hover:text-[#c0392b] transition-colors">
-              Cerrar sesión
+              Inicio sesión
             </button>
           ) : (
             <Link to="/login"
@@ -93,7 +93,7 @@ export default function Navbar() {
           {loggedIn ? (
             <button onClick={() => { setMenuOpen(false); handleLogout(); }}
               className="w-full text-left text-sm font-semibold px-4 py-2 rounded-lg bg-transparent text-[#e74c3c] border-none cursor-pointer hover:text-[#c0392b]">
-              Cerrar sesión
+              Inicio sesión
             </button>
           ) : (
             <Link to="/login" onClick={() => setMenuOpen(false)}
