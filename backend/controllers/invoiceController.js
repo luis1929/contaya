@@ -17,6 +17,17 @@ function parseXmlContent(xmlContent) {
   });
 }
 
+function extractClientName(xmlContent) {
+  try {
+    const m = xmlContent.match(/<cac:AccountingCustomerParty[\s\S]{0,3000}?<\/cac:AccountingCustomerParty>/);
+    if (!m) return '';
+    const s = m[0];
+    const n = s.match(/<cbc:(Name|RegistrationName)[^>]*>([^<]+)<\/cbc:\1>/);
+    if (n) { const v = n[2].trim(); if (v.length > 2) return v; }
+  } catch {}
+  return '';
+}
+
 function extractInvoiceLines(invoice) {
   if (!invoice?.['cac:InvoiceLine']) return [];
   return toArray(invoice['cac:InvoiceLine']).map(line => {
@@ -64,7 +75,7 @@ async function parseInvoiceLines(xmlContent) {
 module.exports = {
   list: asyncHandler(async (req, res) => {
     const { desde, hasta, estatus, facturador } = req.query;
-    let sql = 'SELECT i.id, i.biller_id, i.ncf, i.status, i.has_xml, i.has_pdf, i.created_at, b.name AS biller_name FROM invoices i LEFT JOIN billers b ON i.biller_id = b.id WHERE 1=1';
+    let sql = 'SELECT i.id, i.biller_id, i.ncf, i.status, i.has_xml, i.has_pdf, i.created_at, i.xml_content, b.name AS biller_name FROM invoices i LEFT JOIN billers b ON i.biller_id = b.id WHERE 1=1';
     const params = [];
     if (desde) { params.push(desde); sql += ` AND i.created_at >= $${params.length}`; }
     if (hasta) { params.push(hasta); sql += ` AND i.created_at <= $${params.length}`; }
@@ -73,7 +84,8 @@ module.exports = {
     sql += whereBiller(req, params, 'i');
     sql += ' ORDER BY i.created_at DESC NULLS LAST';
     const { rows } = await pool.query(sql, params);
-    success(res, rows);
+    const enriched = rows.map(r => ({ ...r, client_name: extractClientName(r.xml_content || ''), xml_content: undefined }));
+    success(res, enriched);
   }),
 
   summary: asyncHandler(async (req, res) => {
@@ -135,8 +147,11 @@ module.exports = {
   }),
 
   clientList: asyncHandler(async (req, res) => {
+    const { desde, hasta } = req.query;
     let sql = `SELECT i.id, i.xml_content FROM invoices i WHERE i.xml_content IS NOT NULL AND i.xml_content != ''`;
     const params = [];
+    if (desde) { params.push(desde); sql += ` AND i.created_at >= $${params.length}`; }
+    if (hasta) { params.push(hasta); sql += ` AND i.created_at <= $${params.length}`; }
     sql += whereBiller(req, params, 'i');
 
     const { rows } = await pool.query(sql, params);
