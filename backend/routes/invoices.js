@@ -6,9 +6,11 @@ const ctrl = require('../controllers/invoiceController');
 
 router.use(authMiddleware, billerContext);
 router.get('/', ctrl.list);
+router.get('/client-list', ctrl.clientList);
 router.get('/summary', ctrl.summary);
 router.get('/summary-by-biller', ctrl.summaryByBiller);
 router.get('/:id', ctrl.getById);
+router.get('/:id/items', ctrl.getById);
 router.post('/', ctrl.create);
 router.put('/:id', ctrl.update);
 router.delete('/:id', ctrl.remove);

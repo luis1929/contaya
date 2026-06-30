@@ -6,20 +6,8 @@ export default function BillerClients() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getInvoices()
-      .then(invoices => {
-        const map = {};
-        invoices.forEach(inv => {
-          const name = inv.client || inv.client_name;
-          if (name) {
-            map[name] = (map[name] || 0) + 1;
-          }
-        });
-        const sorted = Object.entries(map)
-          .map(([name, count]) => ({ name, count }))
-          .sort((a, b) => b.count - a.count);
-        setClients(sorted);
-      })
+    api.getClientList()
+      .then(setClients)
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);

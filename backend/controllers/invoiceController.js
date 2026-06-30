@@ -134,6 +134,45 @@ module.exports = {
     success(res, { message: 'Deleted' });
   }),
 
+  clientList: asyncHandler(async (req, res) => {
+    let sql = `SELECT i.id, i.xml_content FROM invoices i WHERE i.xml_content IS NOT NULL AND i.xml_content != ''`;
+    const params = [];
+    sql += whereBiller(req, params, 'i');
+
+    const { rows } = await pool.query(sql, params);
+    const map = {};
+
+    for (const row of rows) {
+      try {
+        const result = await parseXmlContent(row.xml_content);
+        const invoice = result?.Invoice;
+        if (!invoice && result?.AttachedDocument) {
+          const innerXml = result.AttachedDocument?.['cac:Attachment']?.['cac:ExternalReference']?.['cbc:Description']
+            || result.AttachedDocument?.['cac:Attachment']?.['cac:EmbeddedDocument']?.['cbc:Description']
+            || result.AttachedDocument?.['cbc:Description'];
+          if (innerXml && typeof innerXml === 'string' && innerXml.includes('<Invoice')) {
+            const inner = await parseXmlContent(innerXml);
+            if (inner?.Invoice) {
+              const name = textVal(inner.Invoice['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:PartyName']?.['cbc:Name']);
+              if (name) map[name] = (map[name] || 0) + 1;
+            }
+            continue;
+          }
+        }
+        if (invoice) {
+          const name = textVal(invoice['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:PartyName']?.['cbc:Name']);
+          if (name) map[name] = (map[name] || 0) + 1;
+        }
+      } catch { continue; }
+    }
+
+    const result = Object.entries(map)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+
+    success(res, result);
+  }),
+
   getById: asyncHandler(async (req, res) => {
     const { rows } = await pool.query(
       `SELECT i.*, b.name AS biller_name, b.document_number AS biller_doc_number

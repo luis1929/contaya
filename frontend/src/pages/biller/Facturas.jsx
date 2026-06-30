@@ -4,11 +4,6 @@ import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import InvoiceViewer from '../../components/InvoiceViewer';
 
-function fmt(n) {
-  if (n == null) return '$0';
-  return '$' + Number(n).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
 function today() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -32,9 +27,8 @@ const years = Array.from({ length: currentYear - 2023 }, (_, i) => 2024 + i).rev
 export default function BillerFacturas() {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ ...monthRange(), cliente: '', estatus: '' });
+  const [filters, setFilters] = useState({ ...monthRange(), estatus: '' });
   const [selectedYear, setSelectedYear] = useState('mes');
-  const [stats, setStats] = useState({ total: 0, count: 0, iva: 0, subtotal: 0 });
   const [viewerId, setViewerId] = useState(null);
   const [page, setPage] = useState(1);
   const perPage = 20;
@@ -45,15 +39,11 @@ export default function BillerFacturas() {
       const params = {};
       if (filtersToApply.desde) params.desde = filtersToApply.desde;
       if (filtersToApply.hasta) params.hasta = filtersToApply.hasta;
-      if (filtersToApply.cliente) params.cliente = filtersToApply.cliente;
       if (filtersToApply.estatus) params.estatus = filtersToApply.estatus;
 
       const data = await api.getInvoices(params);
       setInvoices(data);
       setPage(1);
-
-      const total = data.reduce((s, inv) => s + Number(inv.total || 0), 0);
-      setStats({ total, count: data.length, iva: total * 0.19, subtotal: total / 1.19 });
     } catch (err) {
       console.error(err);
     } finally {
@@ -93,41 +83,20 @@ export default function BillerFacturas() {
         </p>
       </div>
 
-      {invoices.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Facturado</p>
-            <p className="text-2xl font-bold text-primary mt-1">{fmt(stats.total)}</p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">IVA 19%</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">{fmt(stats.iva)}</p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">{fmt(stats.subtotal)}</p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">{stats.count}</p>
-          </div>
-        </div>
-      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <select value={selectedYear} onChange={e => handleYearChange(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/40">
+          <option value="mes">Mes actual</option>
+          <option value="todos">Todos</option>
+          {years.map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+      </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-5 grid grid-cols-1 md:grid-cols-6 gap-4">
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Año</label>
-          <select value={selectedYear} onChange={e => handleYearChange(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/40">
-            <option value="mes">Mes actual</option>
-            {years.map(y => <option key={y} value={y}>{y}</option>)}
-            <option value="todos">Todos los años</option>
-          </select>
-        </div>
-        {['desde', 'hasta', 'cliente', 'estatus'].map(field => (
+      <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap items-end gap-4">
+        {['desde', 'hasta', 'estatus'].map(field => (
           <div key={field} className="space-y-1.5">
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              {field === 'desde' ? 'Desde' : field === 'hasta' ? 'Hasta' : field === 'cliente' ? 'Cliente' : 'Estado'}
+              {field === 'desde' ? 'Desde' : field === 'hasta' ? 'Hasta' : 'Estado'}
             </label>
             {field === 'estatus' ? (
               <select value={filters.estatus} onChange={e => setFilters({ ...filters, estatus: e.target.value })}
@@ -137,10 +106,6 @@ export default function BillerFacturas() {
                 <option value="Pendiente">Pendiente</option>
                 <option value="Anulado">Anulado</option>
               </select>
-            ) : field === 'cliente' ? (
-              <input type="text" placeholder="Buscar cliente..."
-                value={filters.cliente} onChange={e => setFilters({ ...filters, cliente: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
             ) : (
               <input type={'date'}
                 value={filters[field]} onChange={e => setFilters({ ...filters, [field]: e.target.value })}
@@ -150,7 +115,7 @@ export default function BillerFacturas() {
         ))}
         <div className="flex items-end gap-2">
           <Button onClick={() => load(filters)}>🔍 Filtrar</Button>
-          <Button variant="secondary" onClick={() => { const reset = { ...monthRange(), cliente: '', estatus: '' }; setFilters(reset); setSelectedYear('mes'); load(reset); }}>
+          <Button variant="secondary" onClick={() => { const reset = { ...monthRange(), estatus: '' }; setFilters(reset); setSelectedYear('mes'); load(reset); }}>
             Limpiar
           </Button>
         </div>
@@ -173,11 +138,7 @@ export default function BillerFacturas() {
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">NCF</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Cliente</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Fecha</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Total</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">IVA</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Subtotal</th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Estado</th>
                   </tr>
                 </thead>
@@ -190,14 +151,7 @@ export default function BillerFacturas() {
                           {inv.ncf || '—'}
                         </button>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
-                        <div className="font-medium">{inv.client_name || (inv.client || '').split('...')[0]}</div>
-                        {inv.client_email && <div className="text-xs text-gray-400">{inv.client_email}</div>}
-                      </td>
                       <td className="px-4 py-3 text-sm text-gray-500">{inv.created_at?.slice(0, 10)}</td>
-                      <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">{fmt(inv.total)}</td>
-                      <td className="px-4 py-3 text-sm text-primary font-medium text-right">{fmt(Number(inv.total || 0) * 0.19)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500 text-right">{fmt(Number(inv.total || 0) / 1.19)}</td>
                       <td className="px-4 py-3 text-center">
                         <Badge color={inv.status === 'Firmado' ? 'success' : inv.status === 'Anulado' ? 'danger' : 'warning'}>
                           {inv.status}
@@ -222,26 +176,9 @@ export default function BillerFacturas() {
                   </Badge>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Cliente</span>
-                  <span className="font-medium text-gray-900 text-right">{inv.client_name || (inv.client || '').split('...')[0]}</span>
-                </div>
-                <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Fecha</span>
                   <span className="text-gray-700">{inv.created_at?.slice(0, 10)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Total</span>
-                  <span className="font-semibold text-gray-900">{fmt(Number(inv.total))}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">IVA</span>
-                  <span className="text-primary font-medium">{fmt(Number(inv.total || 0) * 0.19)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Subtotal</span>
-                  <span className="text-gray-700">{fmt(Number(inv.total || 0) / 1.19)}</span>
-                </div>
-                {inv.client_email && <p className="text-xs text-gray-400">{inv.client_email}</p>}
               </div>
             ))}
           </div>

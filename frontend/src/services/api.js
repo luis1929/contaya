@@ -131,6 +131,10 @@ export const api = {
     const { data } = await client.get('/invoices', { params });
     return data;
   },
+  getClientList: async () => {
+    const { data } = await client.get('/invoices/client-list');
+    return data;
+  },
   getInvoiceSummary: async (params = {}) => {
     const { data } = await client.get('/invoices/summary', { params });
     return data;
