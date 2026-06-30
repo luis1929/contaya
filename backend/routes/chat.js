@@ -241,6 +241,9 @@ async function callLLM(messages) {
     throw new Error('NVIDIA_API_KEY no configurada');
   }
 
+  // Configurable model via env var, defaults to deepseek-v4-flash
+  const model = process.env.NVIDIA_MODEL || 'openai/deepseek-ai/deepseek-v4-flash';
+
   const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -248,7 +251,7 @@ async function callLLM(messages) {
       'Authorization': `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: 'openai/deepseek-ai/deepseek-v4-flash',
+      model,
       messages,
       tools,
       tool_choice: 'auto',
