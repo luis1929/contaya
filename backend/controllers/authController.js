@@ -23,26 +23,39 @@ module.exports = {
   }),
 
   login: asyncHandler(async (req, res) => {
-    const { identifier, password } = req.body;
+    // Accept both 'identifier' and 'email' field names for compatibility
+    const identifier = req.body.identifier || req.body.email;
+    const password = req.body.password;
+    
     if (!identifier || !password) return badRequest(res, 'Identificador y contraseña requeridos');
 
-    // Admin login by email
+    console.log('[Auth] Login attempt:', { identifier: identifier.substring(0, 3) + '***' });
+
+    // Admin login by email (contains @)
     if (identifier.includes('@')) {
       return module.exports.loginAdmin(req, res);
     }
 
-    // Biller login by NIT
+    // Biller login by NIT (no @)
     return module.exports.loginCliente(req, res);
   }),
 
   loginAdmin: asyncHandler(async (req, res) => {
-    const { identifier, password } = req.body;
+    const identifier = req.body.identifier || req.body.email;
     const email = identifier; // For clarity
+    const password = req.body.password;
+    
     if (!email || !password) return badRequest(res, 'Faltan campos requeridos');
     const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-    if (!rows.length) return unauthorized(res, 'Credenciales inválidas');
+    if (!rows.length) {
+      console.log('[Auth] Admin not found:', email);
+      return unauthorized(res, 'Credenciales inválidas');
+    }
     const match = await bcrypt.compare(password, rows[0].password);
-    if (!match) return unauthorized(res, 'Credenciales inválidas');
+    if (!match) {
+      console.log('[Auth] Admin password mismatch:', email);
+      return unauthorized(res, 'Credenciales inválidas');
+    }
     const token = jwt.sign({ id: rows[0].id, email: rows[0].email, role: 'admin' }, JWT_SECRET, { expiresIn: '7d' });
     const { password: _, ...user } = rows[0];
     audit.logActivity({ actor_id: rows[0].id, actor_name: rows[0].email, actor_role: 'admin', action: 'login', resource: 'auth', details: { method: 'email' }, ip_address: audit.getIp(req) });
@@ -50,8 +63,10 @@ module.exports = {
   }),
 
   loginCliente: asyncHandler(async (req, res) => {
-    const { identifier, password } = req.body;
+    const identifier = req.body.identifier || req.body.email;
     const nit = identifier; // For clarity
+    const password = req.body.password;
+    
     if (!nit || !password) return badRequest(res, 'NIT y contraseña requeridos');
     
     // Try exact match first, then with check digit suffix (e.g., "900123456-1")
@@ -59,10 +74,24 @@ module.exports = {
     if (!billers.length) {
       billers = (await pool.query('SELECT * FROM billers WHERE document_number LIKE $1', [nit + '-%'])).rows;
     }
-    if (!billers.length) return unauthorized(res, 'Credenciales inválidas');
+    // If still not found and identifier contains @, try by email (if billers table has email column)
+    if (!billers.length && nit.includes('@')) {
+      try {
+        billers = (await pool.query('SELECT * FROM billers WHERE email = $1', [nit])).rows;
+      } catch (e) {
+        // Column might not exist, ignore
+      }
+    }
+    if (!billers.length) {
+      console.log('[Auth] Biller not found:', nit);
+      return unauthorized(res, 'Credenciales inválidas');
+    }
     
     const match = await bcrypt.compare(password, billers[0].password || '');
-    if (!match) return unauthorized(res, 'Credenciales inválidas');
+    if (!match) {
+      console.log('[Auth] Biller password mismatch:', nit);
+      return unauthorized(res, 'Credenciales inválidas');
+    }
     if (billers[0].is_active === false) return forbidden(res, 'Cuenta desactivada. Contacte al administrador.');
     
     const token = jwt.sign({
