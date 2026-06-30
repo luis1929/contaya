@@ -100,9 +100,11 @@ module.exports = {
     );
     if (items && items.length) {
       for (const item of items) {
+        // Use 'total' column for line total; accept both 'total' and 'amount' from request
+        const lineTotal = item.total || item.amount || 0;
         await pool.query(
-          'INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, amount) VALUES ($1,$2,$3,$4,$5)',
-          [rows[0].id, item.description, item.quantity || 1, item.unit_price || 0, item.amount || 0]
+          'INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, total) VALUES ($1,$2,$3,$4,$5)',
+          [rows[0].id, item.description, item.quantity || 1, item.unit_price || 0, lineTotal]
         );
       }
     }
@@ -120,9 +122,10 @@ module.exports = {
     if (items) {
       await pool.query('DELETE FROM invoice_items WHERE invoice_id = $1', [req.params.id]);
       for (const item of items) {
+        const lineTotal = item.total || item.amount || 0;
         await pool.query(
-          'INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, amount) VALUES ($1,$2,$3,$4,$5)',
-          [req.params.id, item.description, item.quantity || 1, item.unit_price || 0, item.amount || 0]
+          'INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, total) VALUES ($1,$2,$3,$4,$5)',
+          [req.params.id, item.description, item.quantity || 1, item.unit_price || 0, lineTotal]
         );
       }
     }
@@ -195,7 +198,8 @@ module.exports = {
       const product = productMap[pid];
       if (!product) continue;
       const qty = parseFloat(entry.quantity) || 1;
-      const unitPrice = parseFloat(product.unit_value) || 0;
+      // Use unit_price if available, fallback to unit_value (legacy column name)
+      const unitPrice = parseFloat(product.unit_price ?? product.unit_value) || 0;
       const ivaPct = parseFloat(product.iva_percentage) || 0;
       const retPct = parseFloat(product.retention_percentage) || 0;
       const lineTotal = qty * unitPrice;
