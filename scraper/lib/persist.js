@@ -104,7 +104,7 @@ async function upsertInvoices(pool, invoices, billerId) {
       console.error(`  [comprobantes] Error con NCF ${inv.ncf}: ${err.message}`);
     }
   }
-  return { inserted, updated, lineItems };
+  return { inserted, lineItems };
 }
 
 async function upsertInvoiceItems(pool, invoiceId, lines) {
