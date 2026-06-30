@@ -78,7 +78,7 @@ function InvoiceViewerContent({ invoice, payload, rawData }) {
 
       <SectionDivider />
 
-      {/* === CLIENT INFO === */}
+{/* === CLIENT INFO === */}
       <div className="px-6 py-4">
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Cliente</p>
         {cliente ? (
@@ -114,13 +114,63 @@ function InvoiceViewerContent({ invoice, payload, rawData }) {
             </div>}
           </div>
         ) : (
-          <p className="font-semibold text-gray-900 text-sm">
-            {invoice.client_name || rawData?.cliente || '—'}
-          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-sm">
+            <div className="col-span-2 sm:col-span-4">
+              <span className="font-semibold text-gray-900">{invoice.client_name || '—'}</span>
+            </div>
+            {invoice.client_email && (
+              <div className="col-span-2 sm:col-span-4">
+                <span className="text-gray-500">Email:</span>{' '}
+                <span className="font-medium text-gray-900">{invoice.client_email}</span>
+              </div>
+            )}
+            {invoice.issue_date && (
+              <div>
+                <span className="text-gray-500">Fecha emisión:</span>{' '}
+                <span className="font-medium text-gray-900">{new Date(invoice.issue_date).toLocaleDateString('es-CO')}</span>
+              </div>
+            )}
+            {invoice.signature_date && (
+              <div>
+                <span className="text-gray-500">Fecha firma:</span>{' '}
+                <span className="font-medium text-gray-900">{new Date(invoice.signature_date).toLocaleDateString('es-CO')}</span>
+              </div>
+            )}
+            {invoice.payment_method && (
+              <div className="col-span-2 sm:col-span-4">
+                <span className="text-gray-500">Forma de pago:</span>{' '}
+                <span className="font-medium text-gray-900">{invoice.payment_method}</span>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
       <SectionDivider />
+
+      {/* === PAYMENT & NOTES === */}
+      {(invoice.payment_method || invoice.notes) && (
+        <>
+          <div className="px-6 py-4">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Información de Pago y Notas</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              {invoice.payment_method && (
+                <div>
+                  <span className="text-gray-500 block mb-1">Forma de Pago</span>
+                  <span className="font-medium text-gray-900">{invoice.payment_method}</span>
+                </div>
+              )}
+              {invoice.notes && (
+                <div className="sm:col-span-2">
+                  <span className="text-gray-500 block mb-1">Notas</span>
+                  <span className="font-medium text-gray-900 whitespace-pre-wrap">{invoice.notes}</span>
+                </div>
+              )}
+            </div>
+          </div>
+          <SectionDivider />
+        </>
+      )}
 
       {/* === ITEMS TABLE === */}
       <div className="px-6 py-4">
