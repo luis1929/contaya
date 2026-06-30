@@ -125,10 +125,6 @@ export default function BillerFacturas() {
     ? invoices.filter(inv => inv.client_name?.toLowerCase().includes(filters.cliente.toLowerCase()))
     : invoices;
 
-  const totalSum = filtered.reduce((s, inv) => s + (parseFloat(inv.total) || 0), 0);
-  const estSubtotal = totalSum / 1.19;
-  const estIva = totalSum - estSubtotal;
-
   const byType = {};
   for (const inv of filtered) {
     const t = detectType(inv.ncf);
@@ -136,6 +132,10 @@ export default function BillerFacturas() {
     byType[t].count++;
     byType[t].total += parseFloat(inv.total) || 0;
   }
+
+  const netSum = (byType.FV?.total || 0) - (byType.NC?.total || 0) + (byType.ND?.total || 0);
+  const estSubtotal = netSum / 1.19;
+  const estIva = netSum - estSubtotal;
 
   const totalPages = Math.ceil(filtered.length / perPage);
   const current = filtered.slice((page - 1) * perPage, page * perPage);
@@ -147,11 +147,11 @@ export default function BillerFacturas() {
           <h2 className="text-2xl font-bold text-gray-900">Facturación Electrónica</h2>
           <p className="text-gray-500 mt-0.5 text-sm">
             {invoices.length > 0
-              ? `Gestiona y consulta todas tus facturas electrónicas · ${invoices.length} facturas`
+              ? `Gestiona y consulta todas tus facturas electrónicas · ${invoices.length} comprobantes`
               : 'Gestiona y consulta todas tus facturas electrónicas'}
           </p>
         </div>
-        {totalSum > 0 && (
+        {netSum > 0 && (
           <div className="hidden lg:flex items-center gap-6 bg-white rounded-xl border border-gray-200 px-5 py-3">
             <div className="text-right">
               <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Subtotal</p>
@@ -164,8 +164,8 @@ export default function BillerFacturas() {
             </div>
             <div className="w-px h-8 bg-gray-200" />
             <div className="text-right">
-              <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Total</p>
-              <p className="text-base font-bold text-gray-900">{fmt(totalSum)}</p>
+              <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Total Neto</p>
+              <p className="text-base font-bold text-gray-900">{fmt(netSum)}</p>
             </div>
           </div>
         )}
