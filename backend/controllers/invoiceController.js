@@ -56,19 +56,89 @@ function extractInvoiceLines(invoice) {
   });
 }
 
-async function parseInvoiceLines(xmlContent) {
-  const result = await parseXmlContent(xmlContent);
-  if (result?.Invoice?.['cac:InvoiceLine']) return extractInvoiceLines(result.Invoice);
+function extractCreditNoteLines(note) {
+  if (!note?.['cac:CreditNoteLine']) return [];
+  return toArray(note['cac:CreditNoteLine']).map(line => {
+    const item = line['cac:Item'] || {};
+    const description = textVal(item['cbc:Description'] || line['cbc:Description']);
+    const code = textVal(item['cac:SellersItemIdentification']?.['cbc:ID'] || item['cac:StandardItemIdentification']?.['cbc:ID']);
+    const taxSubtotal = line?.['cac:TaxTotal']?.['cac:TaxSubtotal'];
+    const taxCategory = taxSubtotal?.['cac:TaxCategory'];
+    return {
+      code,
+      description,
+      quantity: numVal(line['cbc:CreditedQuantity']),
+      unitPrice: numVal(line?.['cac:Price']?.['cbc:PriceAmount']),
+      ivaPercent: numVal(taxCategory?.['cbc:Percent'] || taxSubtotal?.['cbc:Percent']),
+      taxAmount: numVal(taxSubtotal?.['cbc:TaxAmount'] || line?.['cac:TaxTotal']?.['cbc:TaxAmount']),
+      total: numVal(line['cbc:LineExtensionAmount']),
+    };
+  });
+}
+
+function extractDebitNoteLines(note) {
+  if (!note?.['cac:DebitNoteLine']) return [];
+  return toArray(note['cac:DebitNoteLine']).map(line => {
+    const item = line['cac:Item'] || {};
+    const description = textVal(item['cbc:Description'] || line['cbc:Description']);
+    const code = textVal(item['cac:SellersItemIdentification']?.['cbc:ID'] || item['cac:StandardItemIdentification']?.['cbc:ID']);
+    const taxSubtotal = line?.['cac:TaxTotal']?.['cac:TaxSubtotal'];
+    const taxCategory = taxSubtotal?.['cac:TaxCategory'];
+    return {
+      code,
+      description,
+      quantity: numVal(line['cbc:DebitedQuantity']),
+      unitPrice: numVal(line?.['cac:Price']?.['cbc:PriceAmount']),
+      ivaPercent: numVal(taxCategory?.['cbc:Percent'] || taxSubtotal?.['cbc:Percent']),
+      taxAmount: numVal(taxSubtotal?.['cbc:TaxAmount'] || line?.['cac:TaxTotal']?.['cbc:TaxAmount']),
+      total: numVal(line['cbc:LineExtensionAmount']),
+    };
+  });
+}
+
+function extractCustomerData(doc) {
+  if (!doc) return {};
+  const party = doc['cac:AccountingCustomerParty']?.['cac:Party'];
+  return {
+    name: textVal(party?.['cac:PartyName']?.['cbc:Name'])
+      || textVal(party?.['cac:PartyLegalEntity']?.['cbc:RegistrationName']),
+    email: textVal(party?.['cac:Contact']?.['cbc:ElectronicMail']),
+  };
+}
+
+function extractDocMetadata(doc) {
+  if (!doc) return {};
+  return {
+    total: numVal(doc['cac:LegalMonetaryTotal']?.['cbc:PayableAmount']),
+    subtotal: numVal(doc['cac:LegalMonetaryTotal']?.['cbc:LineExtensionAmount']),
+    issueDate: textVal(doc['cbc:IssueDate']),
+    signatureDate: textVal(doc['cac:Signature']?.['cbc:SignatureDate']) || textVal(doc['cac:Signature']?.['cbc:SignatureTime']),
+    paymentMethod: textVal(doc['cac:PaymentMeans']?.['cbc:PaymentMeansCode']) || textVal(doc['cac:PaymentTerms']?.['cbc:Note']),
+    notes: textVal(doc['cbc:Note']) || (Array.isArray(doc['cac:AdditionalDocumentReference']) ? doc['cac:AdditionalDocumentReference'].map(r => textVal(r['cbc:Description'])).join('; ') : textVal(doc['cac:AdditionalDocumentReference']?.['cbc:Description'])),
+  };
+}
+
+function findInnerInvoice(result) {
   if (result?.AttachedDocument) {
     const doc = result.AttachedDocument;
     const innerXml = doc?.['cac:Attachment']?.['cac:ExternalReference']?.['cbc:Description']
                   || doc?.['cac:Attachment']?.['cac:EmbeddedDocument']?.['cbc:Description']
                   || doc?.['cbc:Description'];
-    if (innerXml && typeof innerXml === 'string' && innerXml.includes('<Invoice')) {
-      return parseInvoiceLines(innerXml);
-    }
+    if (innerXml && typeof innerXml === 'string') return innerXml;
   }
+  return null;
+}
+
+async function parseInvoiceLines(xmlContent) {
+  const result = await parseXmlContent(xmlContent);
+  if (result?.Invoice?.['cac:InvoiceLine']) return extractInvoiceLines(result.Invoice);
+  if (result?.CreditNote?.['cac:CreditNoteLine']) return extractCreditNoteLines(result.CreditNote);
+  if (result?.DebitNote?.['cac:DebitNoteLine']) return extractDebitNoteLines(result.DebitNote);
+  const innerXml = findInnerInvoice(result);
+  if (innerXml) return parseInvoiceLines(innerXml);
   if (result?.Invoice) return extractInvoiceLines(result.Invoice);
+  if (result?.CreditNote) return extractCreditNoteLines(result.CreditNote);
+  if (result?.DebitNote) return extractDebitNoteLines(result.DebitNote);
   return [];
 }
 
@@ -160,24 +230,21 @@ module.exports = {
     for (const row of rows) {
       try {
         const result = await parseXmlContent(row.xml_content);
-        const invoice = result?.Invoice;
-        if (!invoice && result?.AttachedDocument) {
-          const innerXml = result.AttachedDocument?.['cac:Attachment']?.['cac:ExternalReference']?.['cbc:Description']
-            || result.AttachedDocument?.['cac:Attachment']?.['cac:EmbeddedDocument']?.['cbc:Description']
-            || result.AttachedDocument?.['cbc:Description'];
-          if (innerXml && typeof innerXml === 'string' && innerXml.includes('<Invoice')) {
+        const doc = result?.Invoice || result?.CreditNote || result?.DebitNote || null;
+        let name = '';
+
+        if (!doc) {
+          const innerXml = findInnerInvoice(result);
+          if (innerXml) {
             const inner = await parseXmlContent(innerXml);
-            if (inner?.Invoice) {
-              const name = textVal(inner.Invoice['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:PartyName']?.['cbc:Name']);
-              if (name) map[name] = (map[name] || 0) + 1;
-            }
-            continue;
+            const innerDoc = inner?.Invoice || inner?.CreditNote || inner?.DebitNote;
+            if (innerDoc) name = extractCustomerData(innerDoc).name;
           }
+        } else {
+          name = extractCustomerData(doc).name;
         }
-        if (invoice) {
-          const name = textVal(invoice['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:PartyName']?.['cbc:Name']);
-          if (name) map[name] = (map[name] || 0) + 1;
-        }
+
+        if (name) map[name] = (map[name] || 0) + 1;
       } catch { continue; }
     }
 
@@ -197,49 +264,41 @@ module.exports = {
     if (!rows.length) return notFound(res);
     const row = rows[0];
     let items = [];
-    let xmlClientName, xmlClientEmail, xmlTotal, xmlSubtotal, xmlIva, issueDate, signatureDate, paymentMethod, notes;
+    let xmlClientName, xmlClientEmail, xmlTotal, xmlSubtotal, issueDate, signatureDate, paymentMethod, notes;
+
     if (row.xml_content) {
       try {
         const result = await parseXmlContent(row.xml_content);
-        const invoice = result?.Invoice;
-        if (!invoice && result?.AttachedDocument) {
-          const innerXml = result.AttachedDocument?.['cac:Attachment']?.['cac:ExternalReference']?.['cbc:Description']
-            || result.AttachedDocument?.['cac:Attachment']?.['cac:EmbeddedDocument']?.['cbc:Description']
-            || result.AttachedDocument?.['cbc:Description'];
-          if (innerXml && typeof innerXml === 'string' && innerXml.includes('<Invoice')) {
-            const inner = await parseXmlContent(innerXml);
-            items = await parseInvoiceLines(innerXml);
-            const inv = inner?.Invoice;
-            if (inv) {
-              xmlClientName = textVal(inv['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:PartyName']?.['cbc:Name'])
-                || textVal(inv['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:PartyLegalEntity']?.['cbc:RegistrationName']);
-              xmlClientEmail = textVal(inv['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:Contact']?.['cbc:ElectronicMail']);
-              xmlTotal = numVal(inv['cac:LegalMonetaryTotal']?.['cbc:PayableAmount']);
-              xmlSubtotal = numVal(inv['cac:LegalMonetaryTotal']?.['cbc:LineExtensionAmount']);
-              issueDate = textVal(inv['cbc:IssueDate']);
-              signatureDate = textVal(inv['cac:Signature']?.['cbc:SignatureDate']) || textVal(inv['cac:Signature']?.['cbc:SignatureTime']);
-              paymentMethod = textVal(inv['cac:PaymentMeans']?.['cbc:PaymentMeansCode']) || textVal(inv['cac:PaymentTerms']?.['cbc:Note']);
-              notes = textVal(inv['cbc:Note']) || (Array.isArray(inv['cac:AdditionalDocumentReference']) ? inv['cac:AdditionalDocumentReference'].map(r => textVal(r['cbc:Description'])).join('; ') : textVal(inv['cac:AdditionalDocumentReference']?.['cbc:Description']));
-            }
-          }
+        let doc = result?.Invoice || result?.CreditNote || result?.DebitNote;
+        let innerXml = null;
+
+        if (!doc) innerXml = findInnerInvoice(result);
+
+        if (innerXml) {
+          const innerResult = await parseXmlContent(innerXml);
+          doc = innerResult?.Invoice || innerResult?.CreditNote || innerResult?.DebitNote;
+          items = await parseInvoiceLines(innerXml);
         }
-        if (invoice) {
-          items = extractInvoiceLines(invoice);
-          xmlClientName = textVal(invoice['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:PartyName']?.['cbc:Name'])
-            || textVal(invoice['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:PartyLegalEntity']?.['cbc:RegistrationName']);
-          xmlClientEmail = textVal(invoice['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:Contact']?.['cbc:ElectronicMail']);
-          xmlTotal = numVal(invoice['cac:LegalMonetaryTotal']?.['cbc:PayableAmount']);
-          xmlSubtotal = numVal(invoice['cac:LegalMonetaryTotal']?.['cbc:LineExtensionAmount']);
-          issueDate = textVal(invoice['cbc:IssueDate']);
-          signatureDate = textVal(invoice['cac:Signature']?.['cbc:SignatureDate']) || textVal(invoice['cac:Signature']?.['cbc:SignatureTime']);
-          paymentMethod = textVal(invoice['cac:PaymentMeans']?.['cbc:PaymentMeansCode']) || textVal(invoice['cac:PaymentTerms']?.['cbc:Note']);
-          notes = textVal(invoice['cbc:Note']) || (Array.isArray(invoice['cac:AdditionalDocumentReference']) ? invoice['cac:AdditionalDocumentReference'].map(r => textVal(r['cbc:Description'])).join('; ') : textVal(invoice['cac:AdditionalDocumentReference']?.['cbc:Description']));
+
+        if (doc) {
+          if (!items.length) items = extractInvoiceLines(doc) || extractCreditNoteLines(doc) || extractDebitNoteLines(doc);
+          const customer = extractCustomerData(doc);
+          const meta = extractDocMetadata(doc);
+          xmlClientName = customer.name;
+          xmlClientEmail = customer.email;
+          xmlTotal = meta.total;
+          xmlSubtotal = meta.subtotal;
+          issueDate = meta.issueDate;
+          signatureDate = meta.signatureDate;
+          paymentMethod = meta.paymentMethod;
+          notes = meta.notes;
         }
       } catch (e) {
         console.error('Error parsing XML for invoice', row.id);
       }
     }
-    xmlIva = items.reduce((s, it) => s + it.taxAmount, 0);
+
+    const xmlIva = items.reduce((s, it) => s + it.taxAmount, 0);
     success(res, {
       ...row, items,
       client_name: xmlClientName || row.client_name || '',

@@ -17,9 +17,11 @@ function parseXmlContent(xmlContent) {
   });
 }
 
-function extractLines(invoice) {
-  if (!invoice?.['cac:InvoiceLine']) return [];
-  return toArray(invoice['cac:InvoiceLine']).map(line => {
+function extractLines(doc) {
+  const lines = doc?.['cac:InvoiceLine'] || doc?.['cac:CreditNoteLine'] || doc?.['cac:DebitNoteLine'];
+  if (!lines) return [];
+  const qtyKey = doc['cac:InvoiceLine'] ? 'cbc:InvoicedQuantity' : doc['cac:CreditNoteLine'] ? 'cbc:CreditedQuantity' : 'cbc:DebitedQuantity';
+  return toArray(lines).map(line => {
     const item = line['cac:Item'] || {};
     const note = line['cbc:Note'];
     const description = textVal(
@@ -36,7 +38,7 @@ function extractLines(invoice) {
     return {
       code,
       description,
-      quantity: numVal(line['cbc:InvoicedQuantity']),
+      quantity: numVal(line[qtyKey]),
       unitPrice: numVal(line?.['cac:Price']?.['cbc:PriceAmount']),
       ivaPercent: numVal(taxCategory?.['cbc:Percent'] || taxSubtotal?.['cbc:Percent']),
       taxAmount: numVal(taxSubtotal?.['cbc:TaxAmount'] || line?.['cac:TaxTotal']?.['cbc:TaxAmount']),
@@ -45,33 +47,37 @@ function extractLines(invoice) {
   });
 }
 
-function extractClientName(invoice) {
+function extractClientName(doc) {
   try {
-    return textVal(invoice['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:PartyName']?.['cbc:Name']);
+    return textVal(doc['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:PartyName']?.['cbc:Name']);
   } catch { return ''; }
 }
 
-function extractNcf(invoice) {
-  return textVal(invoice['cbc:ID']);
+function extractNcf(doc) {
+  return textVal(doc['cbc:ID']);
+}
+
+function findInnerDoc(result) {
+  let doc = result?.Invoice || result?.CreditNote || result?.DebitNote;
+  if (doc) return doc;
+  if (result?.AttachedDocument) {
+    const innerXml = result.AttachedDocument?.['cac:Attachment']?.['cac:ExternalReference']?.['cbc:Description']
+                  || result.AttachedDocument?.['cac:Attachment']?.['cac:EmbeddedDocument']?.['cbc:Description']
+                  || result.AttachedDocument?.['cbc:Description'];
+    if (innerXml && typeof innerXml === 'string') return { _innerXml: innerXml };
+  }
+  return null;
 }
 
 async function parseInvoiceData(xmlContent) {
   const result = await parseXmlContent(xmlContent);
-  let invoice = result?.Invoice;
-  if (!invoice && result?.AttachedDocument) {
-    const doc = result.AttachedDocument;
-    const innerXml = doc?.['cac:Attachment']?.['cac:ExternalReference']?.['cbc:Description']
-                  || doc?.['cac:Attachment']?.['cac:EmbeddedDocument']?.['cbc:Description']
-                  || doc?.['cbc:Description'];
-    if (innerXml && typeof innerXml === 'string' && innerXml.includes('<Invoice')) {
-      return parseInvoiceData(innerXml);
-    }
-  }
-  if (!invoice) return { items: [], clientName: '', ncf: '' };
+  const doc = findInnerDoc(result);
+  if (!doc) return { items: [], clientName: '', ncf: '' };
+  if (doc._innerXml) return parseInvoiceData(doc._innerXml);
   return {
-    items: extractLines(invoice),
-    clientName: extractClientName(invoice),
-    ncf: extractNcf(invoice),
+    items: extractLines(doc),
+    clientName: extractClientName(doc),
+    ncf: extractNcf(doc),
   };
 }
 

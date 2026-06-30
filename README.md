@@ -279,13 +279,14 @@ El panel admin permite:
 | `users` | Admins del sistema | — |
 | `billers` | Facturadores (multi-tenant) | `biller_id` FK en invoices, documents |
 | `biller_credentials` | Credenciales FacturaTech encriptadas | FK → billers |
-| `invoices` | Facturas electrónicas | FK → billers; `xml_content` (text), `status`, `has_xml`, `has_pdf`, `created_at` |
+| `invoices` | Facturas electrónicas | FK → billers; `xml_content` (text), `client_name`, `total`, `status`, `has_xml`, `has_pdf`, `created_at` |
 | `documents` | Documentos subidos | FK → billers; `extracted_data` (jsonb) |
 | `migration_versions` | Control de migraciones | — |
 
 **Cambios clave en la migración:**
 - Eliminadas: `clients`, `items`, `invoice_items` (los datos ahora se extraen on-the-fly del XML en `invoices.xml_content`)
-- `invoices` simplificada: solo columnas esenciales (`id`, `biller_id`, `ncf`, `xml_content`, `status`, `has_xml`, `has_pdf`, `created_at`)
+- `invoices` simplificada: solo columnas esenciales
+- Migration v2: se agregaron `client_name` (text) y `total` (numeric) como metadatos ligeros poblados por el scraper desde el HTML (sin necesidad de XML)
 - Analytics e InvoiceViewer parsen `xml_content` (UBL 2.1) para obtener: cliente, items, totales, fecha firma, forma de pago, email, notas
 
 ## Despliegue

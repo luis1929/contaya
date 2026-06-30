@@ -13,8 +13,8 @@ function detectDocType(ncf) {
   const upper = ncf.toUpperCase();
   if (upper.includes('NCE') || upper.includes('NCR')) return 'NCE';
   if (upper.includes('NDE') || upper.includes('NDB')) return 'NDE';
-  if (upper.includes('NC')) return 'NC';
-  if (upper.includes('ND')) return 'ND';
+  if (upper.includes('NKR') || upper.includes('NC')) return 'NC';
+  if (upper.includes('ND') || upper.includes('NDF')) return 'ND';
   return 'FV';
 }
 
@@ -82,17 +82,33 @@ export async function extractInvoices(page, { maxPages = 15 } = {}) {
             if (val) isEmpty = false;
           }
 
-          var xmlLink = row.querySelector('a[href*="tipo=xml"]');
+          var xmlLink = row.querySelector('a[href*="tipo=xml"]') || row.querySelector('a[href*="xml"]') || row.querySelector('a[onclick*="xml"]') || row.querySelector('img[alt*="XML"]')?.closest('a');
           if (xmlLink) {
-            var href = xmlLink.getAttribute('href');
-            entry._xml_url = href.startsWith('http') ? href : new URL(href, window.location.href).href;
-            var idMatch = href.match(/idCom=(\d+)/);
-            if (idMatch) entry._id_comprobante = idMatch[1];
-            var usMatch = href.match(/idUs=(\d+)/);
-            if (usMatch) entry._id_us = usMatch[1];
+            var href = xmlLink.getAttribute('href') || xmlLink.getAttribute('onclick') || '';
+            if (href.startsWith('http')) {
+              entry._xml_url = href;
+            } else if (href.startsWith('/')) {
+              entry._xml_url = new URL(href, window.location.origin).href;
+            } else if (href.includes('idCom=')) {
+              entry._xml_url = new URL(href, window.location.href).href;
+            }
+            if (entry._xml_url) {
+              var idMatch = entry._xml_url.match(/idCom=(\d+)/);
+              if (idMatch) entry._id_comprobante = idMatch[1];
+              var usMatch = entry._xml_url.match(/idUs=(\d+)/);
+              if (usMatch) entry._id_us = usMatch[1];
+            }
+          }
+          if (!entry._xml_url) {
+            var pdfLike = row.querySelector('a[href*="pdf"]');
+            if (pdfLike) {
+              var phref = pdfLike.getAttribute('href');
+              entry._xml_url = (phref.startsWith('http') ? phref : new URL(phref, window.location.href).href).replace('tipo=pdf', 'tipo=xml');
+            }
           }
 
           var pdfLink = row.querySelector('a[href*="tipo=pdf"]');
+          if (!pdfLink) pdfLink = row.querySelector('a[href*="pdf"]');
           if (pdfLink) {
             var pdfHref = pdfLink.getAttribute('href');
             entry._pdf_url = pdfHref.startsWith('http') ? pdfHref : new URL(pdfHref, window.location.href).href;
@@ -174,16 +190,22 @@ async function downloadXml(page, invoice) {
     return;
   }
 
-  const xmlContent = await page.evaluate(async (url) => {
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    return await resp.text();
-  }, invoice._xml_url);
+  const newPage = await page.context().newPage();
+  try {
+    await newPage.goto(invoice._xml_url, { timeout: 30000, waitUntil: 'networkidle' });
+    const content = await newPage.content();
 
-  if (!xmlContent || xmlContent.length < 50) {
-    throw new Error(`XML too short (${xmlContent?.length || 0} chars)`);
+    const xmlContent = content.match(/<\?xml[\s\S]*<\/[A-Za-z]+:?[A-Za-z]+>/);
+    const body = xmlContent ? xmlContent[0] : content;
+    const text = body.replace(/<\/?html[^>]*>/gi, '').replace(/<\/?body[^>]*>/gi, '').trim();
+
+    if (!text || text.length < 50 || text.includes('DOCTYPE html') || text.includes('login')) {
+      throw new Error(`Invalid XML (${text.length} chars, starts: ${text.slice(0, 100).replace(/\s+/g, ' ')})`);
+    }
+
+    fs.writeFileSync(xmlPath, text, 'utf8');
+    invoice._xml_path = xmlPath;
+  } finally {
+    await newPage.close();
   }
-
-  fs.writeFileSync(xmlPath, xmlContent, 'utf8');
-  invoice._xml_path = xmlPath;
 }

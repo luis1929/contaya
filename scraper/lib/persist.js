@@ -28,16 +28,21 @@ async function upsertInvoices(pool, invoices, billerId) {
       xmlContent = fs.readFileSync(inv._xml_path, 'utf8');
     }
 
+    const clientName = inv.client || inv.cliente || null;
+    const total = parseTotal(inv.total);
+
     try {
       await pool.query(
-        `INSERT INTO invoices (biller_id, ncf, status, xml_content, has_xml, has_pdf)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO invoices (biller_id, ncf, status, xml_content, has_xml, has_pdf, client_name, total)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          ON CONFLICT (biller_id, ncf) WHERE ncf IS NOT NULL
          DO UPDATE SET status=EXCLUDED.status,
            xml_content=EXCLUDED.xml_content, has_xml=EXCLUDED.has_xml,
-           has_pdf=EXCLUDED.has_pdf, updated_at=NOW()`,
+           has_pdf=EXCLUDED.has_pdf, client_name=EXCLUDED.client_name,
+           total=EXCLUDED.total, updated_at=NOW()`,
         [billerId, inv.ncf, inv.status || 'pending',
-         xmlContent, xmlContent ? true : false, false]
+         xmlContent, xmlContent ? true : false, false,
+         clientName, total]
       );
       inserted++;
     } catch (err) {
