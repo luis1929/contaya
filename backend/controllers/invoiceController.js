@@ -145,7 +145,7 @@ async function parseInvoiceLines(xmlContent) {
 module.exports = {
   list: asyncHandler(async (req, res) => {
     const { desde, hasta, estatus, facturador } = req.query;
-    let sql = 'SELECT i.id, i.biller_id, i.ncf, i.status, i.has_xml, i.has_pdf, i.created_at, i.xml_content, b.name AS biller_name FROM invoices i LEFT JOIN billers b ON i.biller_id = b.id WHERE 1=1';
+    let sql = 'SELECT i.id, i.biller_id, i.ncf, i.status, i.has_xml, i.has_pdf, i.created_at, i.xml_content, i.client_name, i.total, b.name AS biller_name FROM invoices i LEFT JOIN billers b ON i.biller_id = b.id WHERE 1=1';
     const params = [];
     if (desde) { params.push(desde); sql += ` AND i.created_at >= $${params.length}`; }
     if (hasta) { params.push(hasta); sql += ` AND i.created_at <= $${params.length}`; }
@@ -154,7 +154,7 @@ module.exports = {
     sql += whereBiller(req, params, 'i');
     sql += ' ORDER BY i.created_at DESC NULLS LAST';
     const { rows } = await pool.query(sql, params);
-    const enriched = rows.map(r => ({ ...r, client_name: extractClientName(r.xml_content || '') || r.client_name || '', xml_content: undefined }));
+    const enriched = rows.map(r => ({ ...r, client_name: extractClientName(r.xml_content || '') || r.client_name || '', total: r.total || 0, xml_content: undefined }));
     success(res, enriched);
   }),
 
