@@ -6,6 +6,8 @@ import StatsCard from '../../components/ui/StatsCard';
 export default function BillerClients() {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillResult, setBackfillResult] = useState(null);
 
   useEffect(() => {
     api.getClients()
@@ -13,6 +15,20 @@ export default function BillerClients() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  const handleBackfill = async () => {
+    if (backfilling) return;
+    setBackfilling(true);
+    setBackfillResult(null);
+    try {
+      const res = await api.backfillInvoiceItems();
+      setBackfillResult(res);
+    } catch (err) {
+      setBackfillResult({ error: err.message });
+    } finally {
+      setBackfilling(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -24,11 +40,35 @@ export default function BillerClients() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Clientes</h2>
-        {clients.length > 0 && (
-          <p className="text-gray-500 mt-1">{clients.length} clientes registrados</p>
-        )}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Clientes</h2>
+          {clients.length > 0 && (
+            <p className="text-gray-500 mt-1">{clients.length} clientes registrados</p>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleBackfill}
+            disabled={backfilling}
+            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {backfilling ? (
+              <span className="flex items-center gap-2">
+                <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                Procesando...
+              </span>
+            ) : 'Reprocesar XMLs'}
+          </button>
+          {backfillResult && (
+            <span className={`text-sm font-medium ${backfillResult.error ? 'text-red-600' : 'text-green-600'}`}>
+              {backfillResult.error
+                ? `Error: ${backfillResult.error}`
+                : `${backfillResult.processed} facturas, ${backfillResult.totalLines} líneas`
+              }
+            </span>
+          )}
+        </div>
       </div>
 
       {clients.length > 0 && (

@@ -1,3 +1,4 @@
+const { parseString } = require('xml2js');
 const { spawn } = require('child_process');
 const path = require('path');
 const pool = require('../db/pool');
@@ -286,5 +287,123 @@ module.exports = {
     child.unref();
 
     success(res, { message: 'Extracción de items iniciada en segundo plano' });
+  }),
+
+  // --- Helpers for XML parsing ---
+
+  _toArray(val) {
+    return Array.isArray(val) ? val : val ? [val] : [];
+  },
+
+  _textVal(obj) {
+    if (typeof obj === 'string') return obj;
+    if (obj && typeof obj === 'object') return obj._ ?? '';
+    return '';
+  },
+
+  _numVal(obj) {
+    return parseFloat(this._textVal(obj)) || 0;
+  },
+
+  _parseXmlContent(xmlContent) {
+    return new Promise((resolve, reject) => {
+      parseString(xmlContent, { explicitArray: false, mergeAttrs: true }, (err, result) => {
+        if (err) reject(err);
+        else resolve(result);
+      });
+    });
+  },
+
+  _extractInvoiceLines(invoice) {
+    if (!invoice?.['cac:InvoiceLine']) return [];
+    const arr = this._toArray(invoice['cac:InvoiceLine']);
+    return arr.map(line => {
+      const item = line['cac:Item'] || {};
+      const note = line['cbc:Note'];
+      const description = this._textVal(
+        (Array.isArray(note) ? note[0] : note)
+        || item['cbc:Description']
+        || line['cbc:Description']
+      );
+      const code = this._textVal(
+        item['cac:SellersItemIdentification']?.['cbc:ID']
+        || item['cac:StandardItemIdentification']?.['cbc:ID']
+      );
+      const taxSubtotal = line?.['cac:TaxTotal']?.['cac:TaxSubtotal'];
+      const taxCategory = taxSubtotal?.['cac:TaxCategory'];
+
+      return {
+        code,
+        description,
+        quantity: this._numVal(line['cbc:InvoicedQuantity']),
+        unitPrice: this._numVal(line?.['cac:Price']?.['cbc:PriceAmount']),
+        ivaPercent: this._numVal(taxCategory?.['cbc:Percent'] || taxSubtotal?.['cbc:Percent']),
+        taxAmount: this._numVal(taxSubtotal?.['cbc:TaxAmount'] || line?.['cac:TaxTotal']?.['cbc:TaxAmount']),
+        total: this._numVal(line['cbc:LineExtensionAmount']),
+      };
+    });
+  },
+
+  async _parseInvoiceLines(xmlContent) {
+    const result = await this._parseXmlContent(xmlContent);
+    if (result?.Invoice?.['cac:InvoiceLine']) return this._extractInvoiceLines(result.Invoice);
+    if (result?.AttachedDocument) {
+      const doc = result.AttachedDocument;
+      const innerXml = doc?.['cac:Attachment']?.['cac:ExternalReference']?.['cbc:Description']
+                    || doc?.['cac:Attachment']?.['cac:EmbeddedDocument']?.['cbc:Description']
+                    || doc?.['cbc:Description'];
+      if (innerXml && typeof innerXml === 'string' && innerXml.includes('<Invoice')) {
+        return this._parseInvoiceLines(innerXml);
+      }
+    }
+    if (result?.Invoice) return this._extractInvoiceLines(result.Invoice);
+    return [];
+  },
+
+  backfillInvoiceItems: asyncHandler(async (req, res) => {
+    const billerFilter = req.billerId ? 'AND i.biller_id = $1' : '';
+    const params = req.billerId ? [req.billerId] : [];
+
+    const { rows: invoices } = await pool.query(`
+      SELECT i.id, i.ncf, i.xml_content, b.name AS biller
+      FROM invoices i
+      JOIN billers b ON b.id = i.biller_id
+      WHERE i.xml_content IS NOT NULL
+        AND i.xml_content != ''
+        AND NOT EXISTS (
+          SELECT 1 FROM invoice_items ii WHERE ii.invoice_id = i.id
+        )
+        ${billerFilter}
+      ORDER BY i.biller_id, i.created_at
+    `, params);
+
+    let processed = 0, totalLines = 0, errors = 0;
+
+    const ctrl = req.controller || this;
+
+    for (const inv of invoices) {
+      try {
+        const lines = await ctrl._parseInvoiceLines(inv.xml_content);
+        if (!lines.length) continue;
+
+        await pool.query('DELETE FROM invoice_items WHERE invoice_id=$1', [inv.id]);
+
+        for (const line of lines) {
+          await pool.query(
+            `INSERT INTO invoice_items (invoice_id, code, description, quantity, unit_price, iva_percentage, total)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [inv.id, line.code, line.description, line.quantity, line.unitPrice, line.ivaPercent, line.total]
+          );
+        }
+
+        processed++;
+        totalLines += lines.length;
+      } catch (err) {
+        errors++;
+        console.error(`[backfill] Error ${inv.ncf}: ${err.message}`);
+      }
+    }
+
+    success(res, { processed, totalLines, errors });
   }),
 };

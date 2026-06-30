@@ -14,6 +14,7 @@ router.get('/:id', ctrl.getById);
 router.post('/', ctrl.create);
 router.post('/emitir', ctrl.emitir);
 router.post('/extract-items', ctrl.extractItems);
+router.post('/backfill-items', ctrl.backfillInvoiceItems);
 router.put('/:id', ctrl.update);
 router.delete('/:id', ctrl.remove);
 

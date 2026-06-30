@@ -249,6 +249,10 @@ export const api = {
     const { data } = await client.get('/admin/audit-stats');
     return data;
   },
+  backfillInvoiceItems: async () => {
+    const { data } = await client.post('/invoices/backfill-items');
+    return data;
+  },
   getSettings: async () => {
     const { data } = await client.get('/admin/settings');
     return data;

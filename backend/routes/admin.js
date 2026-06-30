@@ -15,5 +15,4 @@ router.get('/audit-log', requirePermission('audit_log', 'read'), ctrl.auditLog);
 router.get('/audit-stats', requirePermission('audit_log', 'read'), ctrl.auditStats);
 router.get('/settings', ctrl.getSettings);
 router.put('/settings', ctrl.updateSetting);
-
 module.exports = router;
