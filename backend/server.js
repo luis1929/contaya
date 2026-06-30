@@ -28,6 +28,7 @@ app.use('/api/declarations', require('./routes/declarations'));
 app.use('/api/items', require('./routes/items'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/analytics', require('./routes/analytics'));
+app.use('/api/invoice-parse', require('./routes/invoiceParser'));
 
 app.use((req, res) => {
   res.sendFile(path.join(frontendDist, 'index.html'));
