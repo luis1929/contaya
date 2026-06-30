@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet, useNavigate, NavLink } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import ImpersonateBanner from '../ImpersonateBanner';
+import ChatWidget from '../chat/ChatWidget';
 import { useAuth } from '../../hooks/useAuth';
 
 const HEADER_LABELS = {
@@ -71,6 +72,7 @@ export default function MainLayout() {
           <Outlet />
         </main>
       </div>
+      <ChatWidget />
     </div>
   );
 }
