@@ -33,6 +33,7 @@ export default function BillerFacturas() {
   const [invoices, setInvoices] = useState([]);
   const [clientList, setClientList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [filters, setFilters] = useState({ ...monthRange(), estatus: '', cliente: '' });
   const [selectedYear, setSelectedYear] = useState('mes');
   const [viewerId, setViewerId] = useState(null);
@@ -64,6 +65,19 @@ export default function BillerFacturas() {
       setLoading(false);
     }
   }, [loadClients]);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const me = await api.getMe();
+      await api.syncBiller(me.id);
+      setTimeout(() => load(filters), 3000);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setTimeout(() => setSyncing(false), 1000);
+    }
+  };
 
   useEffect(() => { load(filters); }, []);
 
@@ -148,6 +162,11 @@ export default function BillerFacturas() {
           <Button onClick={() => load(filters)}>🔍 Filtrar</Button>
           <Button variant="secondary" onClick={() => { const reset = { ...monthRange(), estatus: '', cliente: '' }; setFilters(reset); setSelectedYear('mes'); load(reset); }}>
             Limpiar
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleSync} disabled={syncing}
+            className={syncing ? 'animate-pulse text-primary' : 'text-gray-500 hover:text-primary'}
+            title="Sincronizar última factura desde FacturaTech">
+            {syncing ? '⏳' : '🔄'}
           </Button>
         </div>
       </div>
