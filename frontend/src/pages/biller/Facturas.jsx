@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../../services/api';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
@@ -21,6 +21,10 @@ function monthRange() {
   return { desde: firstOfMonth(), hasta: today() };
 }
 
+function endOfDay(dateStr) {
+  return dateStr ? `${dateStr}T23:59:59` : '';
+}
+
 function detectType(ncf) {
   if (!ncf) return 'FV';
   const u = ncf.toUpperCase();
@@ -36,6 +40,22 @@ function typeLabel(t) {
 function fmt(n) {
   if (n == null || isNaN(n)) return '$0';
   return '$' + Number(n).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function calcSubtotal(total, type) {
+  const n = parseFloat(total) || 0;
+  if (type === 'NC') return -(Math.abs(n) / 1.19);
+  return n / 1.19;
+}
+
+function calcIva(total, type) {
+  const sub = calcSubtotal(total, type);
+  return sub * 0.19;
+}
+
+function calcNet(total, type) {
+  const sub = calcSubtotal(total, type);
+  return sub + calcIva(total, type);
 }
 
 function fmtNum(n) {
@@ -62,6 +82,9 @@ export default function BillerFacturas() {
   const [viewerId, setViewerId] = useState(null);
   const [page, setPage] = useState(1);
   const perPage = 20;
+  const filtersRef = useRef(filters);
+
+  useEffect(() => { filtersRef.current = filters; }, [filters]);
 
   const loadClients = useCallback(async (desde, hasta) => {
     try {
@@ -75,7 +98,7 @@ export default function BillerFacturas() {
     try {
       const params = {};
       if (filtersToApply.desde) params.desde = filtersToApply.desde;
-      if (filtersToApply.hasta) params.hasta = filtersToApply.hasta;
+      if (filtersToApply.hasta) params.hasta = endOfDay(filtersToApply.hasta);
       if (filtersToApply.estatus) params.estatus = filtersToApply.estatus;
 
       const data = await api.getInvoices(params);
@@ -94,7 +117,7 @@ export default function BillerFacturas() {
     try {
       const me = await api.getMe();
       await api.syncBiller(me.id);
-      setTimeout(() => load(filters), 3000);
+      setTimeout(() => load(filtersRef.current), 3000);
     } catch (err) {
       console.error(err);
     } finally {
@@ -104,17 +127,20 @@ export default function BillerFacturas() {
 
   useEffect(() => { load(filters); }, []);
 
+  function applyFilters(newFilters) {
+    setFilters(newFilters);
+    load(newFilters);
+  }
+
   const handleYearChange = (val) => {
+    setSelectedYear(val);
     let newFilters;
     if (val === 'todos') {
-      setSelectedYear('todos');
       newFilters = { ...filters, desde: '', hasta: '' };
     } else if (val === 'mes') {
-      setSelectedYear('mes');
       newFilters = { ...filters, ...monthRange() };
     } else {
       const year = Number(val);
-      setSelectedYear(year);
       newFilters = { ...filters, ...yearRange(year) };
     }
     setFilters(newFilters);
@@ -198,11 +224,11 @@ export default function BillerFacturas() {
             <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Período</label>
             <div className="flex gap-2">
               <input type="date" value={filters.desde}
-                onChange={e => setFilters({ ...filters, desde: e.target.value })}
+                onChange={e => { setSelectedYear(null); applyFilters({ ...filters, desde: e.target.value }); }}
                 className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
               <span className="text-gray-300 self-center">→</span>
               <input type="date" value={filters.hasta}
-                onChange={e => setFilters({ ...filters, hasta: e.target.value })}
+                onChange={e => { setSelectedYear(null); applyFilters({ ...filters, hasta: e.target.value }); }}
                 className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
             </div>
           </div>
@@ -229,7 +255,7 @@ export default function BillerFacturas() {
             </select>
           </div>
           <div className="flex items-end gap-2">
-            <Button onClick={() => load(filters)}>🔍 Filtrar</Button>
+            <Button onClick={() => load(filtersRef.current)}>🔍 Filtrar</Button>
             <Button variant={syncing ? 'primary' : 'success'} onClick={handleSync} disabled={syncing}
               className={syncing ? 'animate-pulse' : ''}>
               {syncing ? '⏳ Sincronizando...' : '🔄 Sincronizar'}
@@ -268,6 +294,8 @@ export default function BillerFacturas() {
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">NCF</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Cliente</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Fecha</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">Subtotal</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">IVA 19%</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">Total</th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">Estado</th>
                   </tr>
@@ -286,7 +314,9 @@ export default function BillerFacturas() {
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">{inv.client_name || '—'}</td>
                       <td className="px-4 py-3 text-sm text-gray-400">{inv.created_at?.slice(0, 10)}</td>
-                      <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">{inv.total ? fmt(inv.total) : '—'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600 text-right">{fmt(calcSubtotal(inv.total, detectType(inv.ncf)))}</td>
+                      <td className="px-4 py-3 text-sm text-primary text-right">{fmt(calcIva(inv.total, detectType(inv.ncf)))}</td>
+                      <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">{fmt(calcNet(inv.total, detectType(inv.ncf)))}</td>
                       <td className="px-4 py-3 text-center">
                         <Badge color={inv.status === 'Firmado' ? 'success' : inv.status === 'Anulado' ? 'danger' : 'warning'}>
                           {inv.status}
@@ -322,8 +352,16 @@ export default function BillerFacturas() {
                   <span className="text-gray-600">{inv.created_at?.slice(0, 10)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Subtotal</span>
+                  <span className="text-gray-600">{fmt(calcSubtotal(inv.total, detectType(inv.ncf)))}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">IVA 19%</span>
+                  <span className="text-primary">{fmt(calcIva(inv.total, detectType(inv.ncf)))}</span>
+                </div>
+                <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Total</span>
-                  <span className="font-bold text-gray-900">{inv.total ? fmt(inv.total) : '—'}</span>
+                  <span className="font-bold text-gray-900">{fmt(calcNet(inv.total, detectType(inv.ncf)))}</span>
                 </div>
               </div>
             ))}

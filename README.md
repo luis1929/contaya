@@ -128,7 +128,6 @@ cd ../frontend && npm install
 ## Ejecución local
 
 ```bash
-# Base de datos
 # Backend (puerto 3001)
 cd backend && npm run dev
 

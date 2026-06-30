@@ -288,4 +288,10 @@ export const api = {
     const { data } = await client.get('/analytics/stats');
     return data;
   },
+
+  // Chat consultas
+  chatQuery: async (message) => {
+    const { data } = await client.post('/chat/query', { message });
+    return data;
+  },
 };
