@@ -46,11 +46,12 @@ export async function extractItems(page, { maxPages = 50 } = {}) {
       const code = row.code || row.codigo || row.identificador;
       const key = code || `item-${pageIndex}-${Math.random().toString(36).slice(2, 6)}`;
       if (!allByCode.has(key)) {
+        const ivaRaw = row.iva_percentage || row.iva || row['iva_%'] || row['%_iva'] || '0';
+        const hasIva = parseFloat(String(ivaRaw).replace(/,/g, '')) > 0;
         allByCode.set(key, {
           code: code || '',
           name: row.name || row.nombre || row.descripcion || row.description || '',
-          unit: row.unidad || row.unit || '',
-          price: row.precio || row.unit_price || row.valor_unitario || row.unitario || row.precio_unitario || '0',
+          iva_percentage: hasIva ? 19 : 0,
         });
         newCount++;
       }

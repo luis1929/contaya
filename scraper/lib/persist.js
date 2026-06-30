@@ -22,14 +22,13 @@ async function upsertItems(pool, items, billerId) {
   let inserted = 0, updated = 0;
   for (const item of items) {
     if (!item.code) continue;
-    const price = parseTotal(item.price) || 0;
     try {
       const { rowCount } = await pool.query(
-        `INSERT INTO items (biller_id, code, description, unit_value)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO items (biller_id, code, description, unit_value, iva_percentage)
+         VALUES ($1, $2, $3, 0, $4)
          ON CONFLICT (biller_id, code) WHERE code IS NOT NULL
-         DO UPDATE SET description=EXCLUDED.description, unit_value=EXCLUDED.unit_value, updated_at=NOW()`,
-        [billerId, item.code, item.name, price]
+         DO UPDATE SET description=EXCLUDED.description, iva_percentage=EXCLUDED.iva_percentage, updated_at=NOW()`,
+        [billerId, item.code, item.name, item.iva_percentage ?? 0]
       );
       if (rowCount === 1) inserted++;
       else updated++;
