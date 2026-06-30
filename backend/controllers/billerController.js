@@ -18,7 +18,12 @@ module.exports = {
   list: asyncHandler(async (req, res) => {
     if (req.user.role === 'biller') {
       const { rows } = await pool.query(
-        'SELECT id, name, document_number, email, phone, is_active FROM billers WHERE id = $1',
+        `SELECT b.id, b.name, b.document_number, b.email, b.phone, b.is_active,
+          b.scrape_status, b.scrape_last_run, b.scrape_error,
+          COALESCE(bc.is_configured, false) AS credentials_configured
+         FROM billers b
+         LEFT JOIN biller_credentials bc ON bc.biller_id = b.id
+         WHERE b.id = $1`,
         [req.user.biller_id]
       );
       return success(res, rows);

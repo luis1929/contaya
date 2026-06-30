@@ -43,6 +43,9 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || 'Error interno del servidor' });
 });
 
+const syncScheduler = require('./services/syncScheduler');
+
 app.listen(PORT, () => {
   console.log('Contaya backend running on port ' + PORT);
+  syncScheduler.start();
 });
