@@ -81,6 +81,20 @@ async function parseInvoiceData(xmlContent) {
   };
 }
 
+async function parseDocForStats(xmlContent) {
+  const result = await parseXmlContent(xmlContent);
+  if (result?.Invoice) return { type: 'invoice', lines: extractLines(result.Invoice) };
+  if (result?.CreditNote) return { type: 'credit_note', lines: extractLines(result.CreditNote) };
+  if (result?.DebitNote) return { type: 'debit_note', lines: extractLines(result.DebitNote) };
+  if (result?.AttachedDocument) {
+    const innerXml = result.AttachedDocument?.['cac:Attachment']?.['cac:ExternalReference']?.['cbc:Description']
+                  || result.AttachedDocument?.['cac:Attachment']?.['cac:EmbeddedDocument']?.['cbc:Description']
+                  || result.AttachedDocument?.['cbc:Description'];
+    if (innerXml && typeof innerXml === 'string') return parseDocForStats(innerXml);
+  }
+  return { type: null, lines: [] };
+}
+
 module.exports = {
   topProducts: asyncHandler(async (req, res) => {
     const { desde, hasta, limit = 20 } = req.query;
@@ -305,27 +319,48 @@ module.exports = {
     const productCodes = new Set();
     let invoicesWithItems = 0;
     let totalLineItems = 0;
-    let totalValue = 0;
     let totalQty = 0;
+    let invoiceValue = 0;
+    let invoiceCount = 0;
+    let creditNoteValue = 0;
+    let creditNoteCount = 0;
+    let debitNoteValue = 0;
+    let debitNoteCount = 0;
 
     for (const row of rows) {
-      let data;
-      try { data = await parseInvoiceData(row.xml_content); } catch { continue; }
-      if (data.items.length) invoicesWithItems++;
-      for (const line of data.items) {
+      let parsed;
+      try { parsed = await parseDocForStats(row.xml_content); } catch { continue; }
+      if (!parsed.type) continue;
+      if (parsed.lines.length) invoicesWithItems++;
+      for (const line of parsed.lines) {
         if (line.code) productCodes.add(line.code);
         totalLineItems++;
-        totalValue += line.total;
         totalQty += line.quantity;
+        if (parsed.type === 'credit_note') {
+          creditNoteValue += line.total;
+        } else if (parsed.type === 'debit_note') {
+          debitNoteValue += line.total;
+        } else {
+          invoiceValue += line.total;
+        }
       }
+      if (parsed.type === 'credit_note') creditNoteCount++;
+      else if (parsed.type === 'debit_note') debitNoteCount++;
+      else invoiceCount++;
     }
 
     success(res, {
       total_products: productCodes.size,
       invoices_with_items: invoicesWithItems,
       total_line_items: totalLineItems,
-      total_value: totalValue,
       total_qty: totalQty,
+      invoice_value: invoiceValue,
+      invoice_count: invoiceCount,
+      credit_note_value: creditNoteValue,
+      credit_note_count: creditNoteCount,
+      debit_note_value: debitNoteValue,
+      debit_note_count: debitNoteCount,
+      net_value: invoiceValue - creditNoteValue + debitNoteValue,
     });
   }),
 };
