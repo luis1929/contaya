@@ -21,6 +21,11 @@ function monthRange() {
   return { desde: firstOfMonth(), hasta: today() };
 }
 
+function fmt(n) {
+  if (n == null || isNaN(n)) return '$0';
+  return '$' + Number(n).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: currentYear - 2023 }, (_, i) => 2024 + i).reverse();
 
@@ -83,6 +88,10 @@ export default function BillerFacturas() {
     ? invoices.filter(inv => inv.client_name?.toLowerCase().includes(filters.cliente.toLowerCase()))
     : invoices;
 
+  const totalSum = filtered.reduce((s, inv) => s + (parseFloat(inv.total) || 0), 0);
+  const estSubtotal = totalSum / 1.19;
+  const estIva = totalSum - estSubtotal;
+
   const totalPages = Math.ceil(filtered.length / perPage);
   const current = filtered.slice((page - 1) * perPage, page * perPage);
 
@@ -93,6 +102,16 @@ export default function BillerFacturas() {
         <p className="text-gray-500 mt-1">
           Gestiona y consulta todas tus facturas electrónicas
           {invoices.length > 0 && ` · ${invoices.length} facturas`}
+          {totalSum > 0 && (
+            <span className="ml-2 space-x-2">
+              <span className="text-gray-400">·</span>
+              <span className="font-medium text-gray-700">Subtotal: {fmt(estSubtotal)}</span>
+              <span className="text-gray-400">·</span>
+              <span className="font-medium text-primary">IVA 19%: {fmt(estIva)}</span>
+              <span className="text-gray-400">·</span>
+              <span className="font-semibold text-gray-900">Total: {fmt(totalSum)}</span>
+            </span>
+          )}
         </p>
       </div>
 
