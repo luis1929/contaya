@@ -38,6 +38,17 @@ function fmt(n) {
   return '$' + Number(n).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function fmtNum(n) {
+  if (n == null || isNaN(n)) return '0';
+  return Number(n).toLocaleString('es-CO');
+}
+
+const typeConfig = {
+  FV: { label: 'Facturas', color: 'border-l-blue-500 bg-blue-50/50', textColor: 'text-blue-700', dot: 'bg-blue-500' },
+  NC: { label: 'Notas Crédito', color: 'border-l-amber-500 bg-amber-50/50', textColor: 'text-amber-700', dot: 'bg-amber-500' },
+  ND: { label: 'Notas Débito', color: 'border-l-red-500 bg-red-50/50', textColor: 'text-red-700', dot: 'bg-red-500' },
+};
+
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: currentYear - 2023 }, (_, i) => 2024 + i).reverse();
 
@@ -125,79 +136,116 @@ export default function BillerFacturas() {
     byType[t].count++;
     byType[t].total += parseFloat(inv.total) || 0;
   }
-  const typeOrder = ['FV', 'NC', 'ND'];
 
   const totalPages = Math.ceil(filtered.length / perPage);
   const current = filtered.slice((page - 1) * perPage, page * perPage);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Facturas</h2>
-        <p className="text-gray-500 mt-1">
-          Gestiona y consulta todas tus facturas electrónicas
-          {invoices.length > 0 && ` · ${invoices.length} facturas`}
-          {totalSum > 0 && (
-            <span className="ml-2 space-x-2">
-              <span className="text-gray-400">·</span>
-              <span className="font-medium text-gray-700">Subtotal: {fmt(estSubtotal)}</span>
-              <span className="text-gray-400">·</span>
-              <span className="font-medium text-primary">IVA 19%: {fmt(estIva)}</span>
-              <span className="text-gray-400">·</span>
-              <span className="font-semibold text-gray-900">Total: {fmt(totalSum)}</span>
-            </span>
-          )}
-        </p>
-        {invoices.length > 0 && (
-          <div className="flex gap-4 mt-2 text-sm">
-            {typeOrder.filter(t => byType[t]).map(t => (
-              <div key={t} className="flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-lg border border-gray-200">
-                <span className={`w-2 h-2 rounded-full ${t === 'FV' ? 'bg-blue-500' : t === 'NC' ? 'bg-amber-500' : 'bg-red-500'}`} />
-                <span className="font-medium text-gray-700">{typeLabel(t)}:</span>
-                <span className="text-gray-500">{byType[t].count}</span>
-                <span className="text-gray-300">|</span>
-                <span className="font-semibold text-gray-900">{fmt(byType[t].total)}</span>
-              </div>
-            ))}
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Facturación Electrónica</h2>
+          <p className="text-gray-500 mt-0.5 text-sm">
+            {invoices.length > 0
+              ? `Gestiona y consulta todas tus facturas electrónicas · ${invoices.length} facturas`
+              : 'Gestiona y consulta todas tus facturas electrónicas'}
+          </p>
+        </div>
+        {totalSum > 0 && (
+          <div className="hidden lg:flex items-center gap-6 bg-white rounded-xl border border-gray-200 px-5 py-3">
+            <div className="text-right">
+              <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Subtotal</p>
+              <p className="text-sm font-semibold text-gray-700">{fmt(estSubtotal)}</p>
+            </div>
+            <div className="w-px h-8 bg-gray-200" />
+            <div className="text-right">
+              <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">IVA 19%</p>
+              <p className="text-sm font-semibold text-primary">{fmt(estIva)}</p>
+            </div>
+            <div className="w-px h-8 bg-gray-200" />
+            <div className="text-right">
+              <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Total</p>
+              <p className="text-base font-bold text-gray-900">{fmt(totalSum)}</p>
+            </div>
           </div>
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap items-end gap-4">
-        {['desde', 'hasta', 'cliente', 'estatus'].map(field => (
-          <div key={field} className="space-y-1.5">
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              {field === 'desde' ? 'Desde' : field === 'hasta' ? 'Hasta' : field === 'cliente' ? 'Cliente' : 'Estado'}
-            </label>
-            {field === 'estatus' ? (
-              <select value={filters.estatus} onChange={e => setFilters({ ...filters, estatus: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/40">
-                <option value="">Todos</option>
-                <option value="Firmado">Firmado</option>
-                <option value="Pendiente">Pendiente</option>
-                <option value="Anulado">Anulado</option>
-              </select>
-            ) : field === 'cliente' ? (
-              <select value={filters.cliente} onChange={e => setFilters({ ...filters, cliente: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/40">
-                <option value="">Todos los clientes</option>
-                {clientList.map(c => (
-                  <option key={c.name} value={c.name}>{c.name} ({c.count})</option>
-                ))}
-              </select>
-            ) : (
-              <input type={'date'}
-                value={filters[field]} onChange={e => setFilters({ ...filters, [field]: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
-            )}
+      {invoices.length > 0 && (
+        <div className="flex flex-wrap gap-3">
+          {['FV', 'NC', 'ND'].filter(t => byType[t]).map(t => {
+            const cfg = typeConfig[t];
+            return (
+              <div key={t} className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border border-l-4 ${cfg.color}`}>
+                <span className={`w-2.5 h-2.5 rounded-full ${cfg.dot}`} />
+                <div>
+                  <p className={`text-xs font-semibold uppercase tracking-wider ${cfg.textColor}`}>{cfg.label}</p>
+                  <p className="text-sm text-gray-500">
+                    <span className="font-bold text-gray-900">{byType[t].count}</span> comprobantes
+                    <span className="mx-1.5 text-gray-300">·</span>
+                    <span className="font-bold text-gray-900">{fmt(byType[t].total)}</span>
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+        <div className="p-4 flex flex-wrap items-end gap-3">
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Período</label>
+            <div className="flex gap-2">
+              <input type="date" value={filters.desde}
+                onChange={e => setFilters({ ...filters, desde: e.target.value })}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
+              <span className="text-gray-300 self-center">→</span>
+              <input type="date" value={filters.hasta}
+                onChange={e => setFilters({ ...filters, hasta: e.target.value })}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
+            </div>
           </div>
-        ))}
-        <div className="flex items-end gap-2">
-          <Button onClick={() => load(filters)}>🔍 Filtrar</Button>
-          <Button variant={syncing ? 'primary' : 'success'} onClick={handleSync} disabled={syncing}
-            className={syncing ? 'animate-pulse' : ''}>
-            {syncing ? '⏳ Sincronizando...' : '🔄 Sincronizar'}
-          </Button>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Cliente</label>
+            <select value={filters.cliente}
+              onChange={e => setFilters({ ...filters, cliente: e.target.value })}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 min-w-[180px]">
+              <option value="">Todos los clientes</option>
+              {clientList.map(c => (
+                <option key={c.name} value={c.name}>{c.name} ({c.count})</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Estado</label>
+            <select value={filters.estatus}
+              onChange={e => setFilters({ ...filters, estatus: e.target.value })}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/40">
+              <option value="">Todos</option>
+              <option value="Firmado">Firmado</option>
+              <option value="Pendiente">Pendiente</option>
+              <option value="Anulado">Anulado</option>
+            </select>
+          </div>
+          <div className="flex items-end gap-2">
+            <Button onClick={() => load(filters)}>🔍 Filtrar</Button>
+            <Button variant={syncing ? 'primary' : 'success'} onClick={handleSync} disabled={syncing}
+              className={syncing ? 'animate-pulse' : ''}>
+              {syncing ? '⏳ Sincronizando...' : '🔄 Sincronizar'}
+            </Button>
+          </div>
+        </div>
+        <div className="px-4 pb-4 flex flex-wrap gap-1.5">
+          {['mes', 'todos', ...years].map(y => {
+            const label = y === 'mes' ? 'Este mes' : y === 'todos' ? 'Todo' : String(y);
+            return (
+              <button key={y} onClick={() => handleYearChange(y)}
+                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${selectedYear === y ? 'bg-primary text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100'}`}>
+                {label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -212,28 +260,33 @@ export default function BillerFacturas() {
         </div>
       ) : (
         <>
-          <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">NCF</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Cliente</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Fecha</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Estado</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">NCF</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Cliente</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Fecha</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">Total</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">Estado</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {current.map((inv, i) => (
                     <tr key={inv.id} className="hover:bg-gray-50 transition-colors fade-in" style={{ animationDelay: `${i * 0.03}s` }}>
-                      <td className="px-4 py-3 text-sm font-mono font-medium">
-                        <button onClick={() => setViewerId(inv.id)}
-                          className="text-primary hover:text-primary-dark hover:underline cursor-pointer">
-                          {inv.ncf || '—'}
-                        </button>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${detectType(inv.ncf) === 'FV' ? 'bg-blue-500' : detectType(inv.ncf) === 'NC' ? 'bg-amber-500' : 'bg-red-500'}`} />
+                          <button onClick={() => setViewerId(inv.id)}
+                            className="text-sm font-mono font-medium text-primary hover:text-primary-dark hover:underline cursor-pointer">
+                            {inv.ncf || '—'}
+                          </button>
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{inv.client_name || '—'}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500">{inv.created_at?.slice(0, 10)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{inv.client_name || '—'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-400">{inv.created_at?.slice(0, 10)}</td>
+                      <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">{inv.total ? fmt(inv.total) : '—'}</td>
                       <td className="px-4 py-3 text-center">
                         <Badge color={inv.status === 'Firmado' ? 'success' : inv.status === 'Anulado' ? 'danger' : 'warning'}>
                           {inv.status}
@@ -250,20 +303,27 @@ export default function BillerFacturas() {
             {current.map((inv, i) => (
               <div key={inv.id} className="bg-white rounded-xl border border-gray-200 p-4 space-y-2 fade-in" style={{ animationDelay: `${i * 0.03}s` }}>
                 <div className="flex items-center justify-between">
-                  <button onClick={() => setViewerId(inv.id)} className="text-primary font-mono text-sm font-medium hover:underline">
-                    {inv.ncf || '—'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${detectType(inv.ncf) === 'FV' ? 'bg-blue-500' : detectType(inv.ncf) === 'NC' ? 'bg-amber-500' : 'bg-red-500'}`} />
+                    <button onClick={() => setViewerId(inv.id)} className="text-primary font-mono text-sm font-medium hover:underline">
+                      {inv.ncf || '—'}
+                    </button>
+                  </div>
                   <Badge color={inv.status === 'Firmado' ? 'success' : inv.status === 'Anulado' ? 'danger' : 'warning'}>
                     {inv.status}
                   </Badge>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Cliente</span>
+                  <span className="text-gray-400">Cliente</span>
                   <span className="font-medium text-gray-900 text-right">{inv.client_name || '—'}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Fecha</span>
-                  <span className="text-gray-700">{inv.created_at?.slice(0, 10)}</span>
+                  <span className="text-gray-400">Fecha</span>
+                  <span className="text-gray-600">{inv.created_at?.slice(0, 10)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Total</span>
+                  <span className="font-bold text-gray-900">{inv.total ? fmt(inv.total) : '—'}</span>
                 </div>
               </div>
             ))}
@@ -272,18 +332,17 @@ export default function BillerFacturas() {
       )}
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2">
-          <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>← Anterior</Button>
+        <div className="flex items-center justify-center gap-1.5">
+          <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>←</Button>
           {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
             <Button key={p} variant={p === page ? 'primary' : 'secondary'} size="sm" onClick={() => setPage(p)}>{p}</Button>
           ))}
-          <Button variant="secondary" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Siguiente →</Button>
+          <Button variant="secondary" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>→</Button>
+          <span className="ml-3 text-sm text-gray-400">
+            Pág. {page} de {totalPages} · {filtered.length} registros
+          </span>
         </div>
       )}
-
-      <p className="text-center text-sm text-gray-400">
-        Mostrando {((page - 1) * perPage) + 1}-{Math.min(page * perPage, invoices.length)} de {invoices.length} facturas
-      </p>
 
       {viewerId && <InvoiceViewer invoiceId={viewerId} onClose={() => setViewerId(null)} />}
     </div>
