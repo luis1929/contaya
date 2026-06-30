@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { billerContext } = require('../middleware/tenantContext');
+const { billerContext, whereBiller } = require('../middleware/tenantContext');
 const { error } = require('../lib/response');
-const pool = require('../db'); // Assumes a PostgreSQL pool is exported from ../db
+const pool = require('../db');
 
 // Apply tenant context middleware to all chat routes
 router.use(billerContext);
@@ -105,14 +105,26 @@ Respondes en español y usas las herramientas disponibles para consultar datos d
 NUNCA inventes datos. Si no tienes información, di que no la tienes.
 El usuario es un biller (emisor de facturas) y solo puede ver sus propios datos.`;
 
+// Map internal tool result types to frontend-expected types
+const TYPE_MAP = {
+  invoice_card: 'invoice_card',
+  invoice_list: 'invoice_list',
+  client_summary: 'client_summary',
+  monthly_summary: 'text',
+  top_products: 'text',
+  text: 'text'
+};
+
 // Tool implementations
-async function executeTool(toolName, args, billerId) {
+async function executeTool(toolName, args, billerId, isAdmin) {
   const client = await pool.connect();
   try {
+    const params = [];
+    const billerClause = billerId ? whereBiller({ billerId }, params) : '';
+
     switch (toolName) {
       case 'get_invoice': {
         const { invoice_id } = args;
-        // Assumes tables: invoices, clients, invoice_items, products
         const query = `
           SELECT 
             i.id, i.invoice_number, i.issue_date, i.due_date, i.status,
@@ -134,10 +146,11 @@ async function executeTool(toolName, args, billerId) {
           LEFT JOIN clients c ON i.client_id = c.id
           LEFT JOIN invoice_items ii ON i.id = ii.invoice_id
           LEFT JOIN products p ON ii.product_id = p.id
-          WHERE i.id = $1 AND i.biller_id = $2
+          WHERE i.id = $1 ${billerClause}
           GROUP BY i.id, c.id
         `;
-        const result = await client.query(query, [invoice_id, billerId]);
+        params.unshift(invoice_id);
+        const result = await client.query(query, params);
         if (result.rows.length === 0) {
           return { error: 'Factura no encontrada' };
         }
@@ -153,11 +166,12 @@ async function executeTool(toolName, args, billerId) {
             c.name as client_name
           FROM invoices i
           LEFT JOIN clients c ON i.client_id = c.id
-          WHERE i.biller_id = $1
+          WHERE 1=1 ${billerClause}
           ORDER BY i.issue_date DESC, i.created_at DESC
-          LIMIT $2
+          LIMIT $${params.length + 1}
         `;
-        const result = await client.query(query, [billerId, limit]);
+        params.push(limit);
+        const result = await client.query(query, params);
         return { type: 'invoice_list', data: result.rows };
       }
 
@@ -173,11 +187,12 @@ async function executeTool(toolName, args, billerId) {
             COALESCE(SUM(i.total_amount) FILTER (WHERE i.status = 'overdue'), 0) as total_overdue,
             MAX(i.issue_date) as last_invoice_date
           FROM clients c
-          LEFT JOIN invoices i ON c.id = i.client_id AND i.biller_id = $1
-          WHERE c.id = $2 AND c.biller_id = $1
+          LEFT JOIN invoices i ON c.id = i.client_id ${billerClause ? `AND i.biller_id = ${billerClause.split('=')[1]}` : ''}
+          WHERE c.id = $1 ${billerClause.replace('biller_id', 'c.biller_id')}
           GROUP BY c.id
         `;
-        const result = await client.query(query, [billerId, client_id]);
+        params.unshift(client_id);
+        const result = await client.query(query, params);
         if (result.rows.length === 0) {
           return { error: 'Cliente no encontrado' };
         }
@@ -196,11 +211,11 @@ async function executeTool(toolName, args, billerId) {
             COUNT(*) FILTER (WHERE status = 'overdue') as overdue_count,
             COALESCE(SUM(total_amount) FILTER (WHERE status = 'overdue'), 0) as overdue_amount
           FROM invoices
-          WHERE biller_id = $1
+          WHERE 1=1 ${billerClause}
             AND issue_date >= date_trunc('month', CURRENT_DATE)
             AND issue_date < date_trunc('month', CURRENT_DATE) + interval '1 month'
         `;
-        const result = await client.query(query, [billerId]);
+        const result = await client.query(query, params);
         return { type: 'monthly_summary', data: result.rows[0] };
       }
 
@@ -216,13 +231,14 @@ async function executeTool(toolName, args, billerId) {
           FROM products p
           JOIN invoice_items ii ON p.id = ii.product_id
           JOIN invoices i ON ii.invoice_id = i.id
-          WHERE i.biller_id = $1
+          WHERE 1=1 ${billerClause}
             AND i.issue_date >= CURRENT_DATE - interval '12 months'
           GROUP BY p.id
           ORDER BY ${orderBy}
-          LIMIT $2
+          LIMIT $${params.length + 1}
         `;
-        const result = await client.query(query, [billerId, limit]);
+        params.push(limit);
+        const result = await client.query(query, params);
         return { type: 'top_products', data: result.rows };
       }
 
@@ -241,7 +257,6 @@ async function callLLM(messages) {
     throw new Error('NVIDIA_API_KEY no configurada');
   }
 
-  // Configurable model via env var, defaults to deepseek-v4-flash
   const model = process.env.NVIDIA_MODEL || 'openai/deepseek-ai/deepseek-v4-flash';
 
   const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
@@ -297,13 +312,19 @@ router.post('/query', async (req, res) => {
   try {
     const { message } = req.body;
     const billerId = req.billerId;
+    const isAdmin = req.isAdmin;
 
     if (!message || typeof message !== 'string') {
       return res.status(400).json({ error: 'Mensaje requerido' });
     }
 
-    if (!billerId) {
-      return res.status(403).json({ error: 'Contexto de biller no disponible' });
+    // Admins must specify a biller context (multi-tenant isolation)
+    if (isAdmin && !billerId) {
+      return res.json({
+        type: 'text',
+        data: null,
+        message: 'Como administrador, debes seleccionar un biller para consultar sus datos.'
+      });
     }
 
     // Prepare messages for LLM
@@ -326,17 +347,18 @@ router.post('/query', async (req, res) => {
       });
     }
 
-    // Execute the first tool call (could handle multiple in future)
+    // Execute all tool calls sequentially (for now, just first one)
+    // TODO: Handle multiple tool calls in sequence
     const toolCall = toolCalls[0];
     const toolName = toolCall.function.name;
     const args = JSON.parse(toolCall.function.arguments);
 
     // Execute tool with tenant filtering
-    const result = await executeTool(toolName, args, billerId);
+    const result = await executeTool(toolName, args, billerId, isAdmin);
 
-    // Format response
+    // Format response with frontend-expected types
     const responseData = {
-      type: result.type || 'text',
+      type: TYPE_MAP[result.type] || 'text',
       data: result.data || null,
       message: generateMessage(toolName, result)
     };
