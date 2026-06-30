@@ -115,7 +115,7 @@ function InvoiceViewerContent({ invoice, payload, rawData }) {
           </div>
         ) : (
           <p className="font-semibold text-gray-900 text-sm">
-            {rawData?.cliente || invoice.client_name || '—'}
+            {invoice.client_name || rawData?.cliente || '—'}
           </p>
         )}
       </div>
@@ -145,7 +145,7 @@ function InvoiceViewerContent({ invoice, payload, rawData }) {
                 <tbody>
                   {items.map((item, i) => {
                     const qty = item.quantity || 1;
-                    const unitPrice = item.unit_price || item.unit_value || 0;
+                    const unitPrice = item.unitPrice || item.unit_price || item.unit_value || 0;
                     const lineTotal = item.total || (qty * unitPrice);
                     return (
                       <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
@@ -153,7 +153,7 @@ function InvoiceViewerContent({ invoice, payload, rawData }) {
                         <td className="py-2.5 pr-3 font-medium text-gray-900">{item.description}</td>
                         <td className="py-2.5 pr-3 text-right text-gray-700">{qty}</td>
                         <td className="py-2.5 pr-3 text-right font-mono text-gray-700">{fmt(unitPrice)}</td>
-                        <td className="py-2.5 pr-3 text-right text-primary font-medium">{item.iva_percentage || 0}%</td>
+                        <td className="py-2.5 pr-3 text-right text-primary font-medium">{item.ivaPercent || item.iva_percentage || 0}%</td>
                         <td className="py-2.5 pr-3 text-right font-semibold text-gray-900">{fmt(lineTotal)}</td>
                       </tr>
                     );
@@ -166,7 +166,7 @@ function InvoiceViewerContent({ invoice, payload, rawData }) {
             <div className="md:hidden space-y-2">
               {items.map((item, i) => {
                 const qty = item.quantity || 1;
-                const unitPrice = item.unit_price || item.unit_value || 0;
+                const unitPrice = item.unitPrice || item.unit_price || item.unit_value || 0;
                 const lineTotal = item.total || (qty * unitPrice);
                 return (
                   <div key={i} className="bg-gray-50 rounded-lg p-3 text-sm space-y-1.5">
@@ -197,11 +197,11 @@ function InvoiceViewerContent({ invoice, payload, rawData }) {
         <div className="max-w-xs ml-auto space-y-1.5">
           <div className="flex justify-between text-sm">
             <span className="text-gray-500">Subtotal</span>
-            <span className="font-medium text-gray-900">{fmt(totals?.subtotal || invoice.total / 1.19)}</span>
+            <span className="font-medium text-gray-900">{fmt(invoice.subtotal || 0)}</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-gray-500">IVA 19%</span>
-            <span className="font-medium text-primary">{fmt(totals?.iva || invoice.total * 0.19)}</span>
+            <span className="text-gray-500">IVA</span>
+            <span className="font-medium text-primary">{fmt(invoice.iva || 0)}</span>
           </div>
           {totals?.retenciones > 0 && (
             <div className="flex justify-between text-sm">
@@ -211,7 +211,7 @@ function InvoiceViewerContent({ invoice, payload, rawData }) {
           )}
           <div className="flex justify-between pt-2 border-t-2 border-gray-800">
             <span className="font-bold text-gray-900">Total</span>
-            <span className="font-bold text-xl text-gray-900">{fmt(invoice.total)}</span>
+            <span className="font-bold text-xl text-gray-900">{fmt(invoice.total || 0)}</span>
           </div>
         </div>
       </div>
@@ -238,12 +238,19 @@ function InvoiceViewerContent({ invoice, payload, rawData }) {
             </span>
           </div>
         )}
+        {!invoice.paid && invoice.status === 'Firmado' && (
+          <div className="mt-3 text-center">
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+              Pendiente de pago
+            </span>
+          </div>
+        )}
       </div>
 
       {/* === DOWNLOAD BUTTONS === */}
       <div className="px-6 py-4 border-t border-gray-200 bg-gray-50/50 rounded-b-xl flex flex-wrap gap-2">
-        {invoice.has_pdf && invoice.document_path && (
-          <a href={invoice.document_path} download
+        {invoice.has_pdf && (
+          <a href={`/api/documents/invoice/${invoice.id}/pdf`} target="_blank"
             className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />

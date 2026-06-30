@@ -182,13 +182,45 @@ module.exports = {
     if (!rows.length) return notFound(res);
     const row = rows[0];
     let items = [];
+    let clientName = '';
+    let docTotal = 0;
+    let docSubtotal = 0;
+    let docIva = 0;
     if (row.xml_content) {
       try {
-        items = await parseInvoiceLines(row.xml_content);
+        const result = await parseXmlContent(row.xml_content);
+        const invoice = result?.Invoice;
+        if (!invoice && result?.AttachedDocument) {
+          const innerXml = result.AttachedDocument?.['cac:Attachment']?.['cac:ExternalReference']?.['cbc:Description']
+            || result.AttachedDocument?.['cac:Attachment']?.['cac:EmbeddedDocument']?.['cbc:Description']
+            || result.AttachedDocument?.['cbc:Description'];
+          if (innerXml && typeof innerXml === 'string' && innerXml.includes('<Invoice')) {
+            const inner = await parseXmlContent(innerXml);
+            items = await parseInvoiceLines(innerXml);
+            const inv = inner?.Invoice;
+            if (inv) {
+              clientName = textVal(inv['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:PartyName']?.['cbc:Name'])
+                || textVal(inv['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:PartyLegalEntity']?.['cbc:RegistrationName']);
+              docTotal = numVal(inv['cac:LegalMonetaryTotal']?.['cbc:PayableAmount']);
+              docSubtotal = numVal(inv['cac:LegalMonetaryTotal']?.['cbc:LineExtensionAmount']);
+            }
+            if (!docIva) docIva = items.reduce((s, it) => s + it.taxAmount, 0);
+            success(res, { ...row, items, client_name: clientName, total: docTotal, subtotal: docSubtotal, iva: docIva });
+            return;
+          }
+        }
+        if (invoice) {
+          items = extractInvoiceLines(invoice);
+          clientName = textVal(invoice['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:PartyName']?.['cbc:Name'])
+            || textVal(invoice['cac:AccountingCustomerParty']?.['cac:Party']?.['cac:PartyLegalEntity']?.['cbc:RegistrationName']);
+          docTotal = numVal(invoice['cac:LegalMonetaryTotal']?.['cbc:PayableAmount']);
+          docSubtotal = numVal(invoice['cac:LegalMonetaryTotal']?.['cbc:LineExtensionAmount']);
+        }
       } catch (e) {
         console.error('Error parsing XML for invoice', row.id);
       }
     }
-    success(res, { ...row, items });
+    if (!docIva) docIva = items.reduce((s, it) => s + it.taxAmount, 0);
+    success(res, { ...row, items, client_name: clientName, total: docTotal, subtotal: docSubtotal, iva: docIva });
   }),
 };
