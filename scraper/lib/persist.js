@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { parseInvoiceLines } from './xmlParser.js';
 
 function parseTotal(s) {
   if (!s) return null;
@@ -64,9 +65,9 @@ async function upsertClients(pool, clients, billerId) {
 }
 
 async function upsertInvoices(pool, invoices, billerId) {
-  if (!invoices?.length) return { inserted: 0, updated: 0 };
+  if (!invoices?.length) return { inserted: 0, lineItems: 0 };
 
-  let inserted = 0, updated = 0;
+  let inserted = 0, lineItems = 0;
   for (const inv of invoices) {
     if (!inv.ncf) continue;
     const total = parseTotal(inv.total);
@@ -78,24 +79,53 @@ async function upsertInvoices(pool, invoices, billerId) {
     }
 
     try {
-      const { rowCount } = await pool.query(
+      const { rows } = await pool.query(
         `INSERT INTO invoices (biller_id, ncf, client, doc_type, created_at, total, status,
            xml_content, has_xml)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          ON CONFLICT (biller_id, ncf) WHERE ncf IS NOT NULL
          DO UPDATE SET client=EXCLUDED.client, doc_type=EXCLUDED.doc_type, created_at=EXCLUDED.created_at,
            total=EXCLUDED.total, status=EXCLUDED.status,
-           xml_content=EXCLUDED.xml_content, has_xml=EXCLUDED.has_xml, updated_at=NOW()`,
+           xml_content=EXCLUDED.xml_content, has_xml=EXCLUDED.has_xml, updated_at=NOW()
+         RETURNING id`,
         [billerId, inv.ncf, inv.client, inv.doc_type, fecha, total, inv.status,
          xmlContent, xmlContent ? true : false]
       );
-      if (rowCount === 1) inserted++;
-      else updated++;
+      inserted++;
+
+      if (xmlContent) {
+        const lines = await parseInvoiceLines(xmlContent);
+        if (lines.length > 0) {
+          const count = await upsertInvoiceItems(pool, rows[0].id, lines);
+          lineItems += count;
+        }
+      }
     } catch (err) {
       console.error(`  [comprobantes] Error con NCF ${inv.ncf}: ${err.message}`);
     }
   }
-  return { inserted, updated };
+  return { inserted, updated, lineItems };
+}
+
+async function upsertInvoiceItems(pool, invoiceId, lines) {
+  if (!lines?.length) return 0;
+
+  await pool.query('DELETE FROM invoice_items WHERE invoice_id=$1', [invoiceId]);
+
+  let count = 0;
+  for (const line of lines) {
+    try {
+      await pool.query(
+        `INSERT INTO invoice_items (invoice_id, code, description, quantity, unit_price, iva_percentage, total)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [invoiceId, line.code, line.description, line.quantity, line.unitPrice, line.ivaPercent, line.total]
+      );
+      count++;
+    } catch (err) {
+      console.error(`  [invoice_items] Error: ${err.message}`);
+    }
+  }
+  return count;
 }
 
 export async function persistAll(pool, syncResult, billerId) {
@@ -111,7 +141,7 @@ export async function persistAll(pool, syncResult, billerId) {
 
   console.log('[persist] Comprobantes...');
   results.invoices = await upsertInvoices(pool, syncResult.invoices, billerId);
-  console.log(`  → ${results.invoices.inserted} insertados, ${results.invoices.updated} actualizados`);
+  console.log(`  → ${results.invoices.inserted} facturas, ${results.invoices.lineItems} líneas de items`);
 
   return results;
 }
