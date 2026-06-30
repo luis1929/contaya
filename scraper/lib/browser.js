@@ -18,8 +18,6 @@ export async function launchBrowser(options = {}) {
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-gpu',
-      '--disable-web-security',
-      '--disable-features=IsolateOrigins,site-per-process',
     ],
   });
 

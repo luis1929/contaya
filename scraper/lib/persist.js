@@ -24,23 +24,15 @@ async function upsertItems(pool, items, billerId) {
     if (!item.code) continue;
     const price = parseTotal(item.price) || 0;
     try {
-      const { rows } = await pool.query(
-        `SELECT id FROM items WHERE biller_id=$1 AND code=$2`,
-        [billerId, item.code]
+      const { rowCount } = await pool.query(
+        `INSERT INTO items (biller_id, code, description, unit_value)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (biller_id, code) WHERE code IS NOT NULL
+         DO UPDATE SET description=EXCLUDED.description, unit_value=EXCLUDED.unit_value, updated_at=NOW()`,
+        [billerId, item.code, item.name, price]
       );
-      if (rows.length > 0) {
-        await pool.query(
-          `UPDATE items SET description=$1, unit_value=$2, updated_at=NOW() WHERE id=$3`,
-          [item.name, price, rows[0].id]
-        );
-        updated++;
-      } else {
-        await pool.query(
-          `INSERT INTO items (biller_id, code, description, unit_value) VALUES ($1, $2, $3, $4)`,
-          [billerId, item.code, item.name, price]
-        );
-        inserted++;
-      }
+      if (rowCount === 1) inserted++;
+      else updated++;
     } catch (err) {
       console.error(`  [items] Error con código ${item.code}: ${err.message}`);
     }
@@ -55,23 +47,16 @@ async function upsertClients(pool, clients, billerId) {
   for (const client of clients) {
     if (!client.document) continue;
     try {
-      const { rows } = await pool.query(
-        `SELECT id FROM clients WHERE biller_id=$1 AND document=$2`,
-        [billerId, client.document]
+      const { rowCount } = await pool.query(
+        `INSERT INTO clients (biller_id, name, email, phone, address, document, ciudad)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (biller_id, document) WHERE document IS NOT NULL
+         DO UPDATE SET name=EXCLUDED.name, email=EXCLUDED.email, phone=EXCLUDED.phone,
+           address=EXCLUDED.address, ciudad=EXCLUDED.ciudad, updated_at=NOW()`,
+        [billerId, client.name, client.email, client.phone, client.address, client.document, client.city]
       );
-      if (rows.length > 0) {
-        await pool.query(
-          `UPDATE clients SET name=$1, email=$2, phone=$3, address=$4, ciudad=$5, updated_at=NOW() WHERE id=$6`,
-          [client.name, client.email, client.phone, client.address, client.city, rows[0].id]
-        );
-        updated++;
-      } else {
-        await pool.query(
-          `INSERT INTO clients (biller_id, name, email, phone, address, document, ciudad) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [billerId, client.name, client.email, client.phone, client.address, client.document, client.city]
-        );
-        inserted++;
-      }
+      if (rowCount === 1) inserted++;
+      else updated++;
     } catch (err) {
       console.error(`  [clientes] Error con doc ${client.document}: ${err.message}`);
     }
@@ -94,27 +79,19 @@ async function upsertInvoices(pool, invoices, billerId) {
     }
 
     try {
-      const { rows } = await pool.query(
-        `SELECT id FROM invoices WHERE biller_id=$1 AND ncf=$2`,
-        [billerId, inv.ncf]
+      const { rowCount } = await pool.query(
+        `INSERT INTO invoices (biller_id, ncf, client, doc_type, created_at, total, status,
+           xml_content, has_xml)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         ON CONFLICT (biller_id, ncf) WHERE ncf IS NOT NULL
+         DO UPDATE SET client=EXCLUDED.client, doc_type=EXCLUDED.doc_type, created_at=EXCLUDED.created_at,
+           total=EXCLUDED.total, status=EXCLUDED.status,
+           xml_content=EXCLUDED.xml_content, has_xml=EXCLUDED.has_xml, updated_at=NOW()`,
+        [billerId, inv.ncf, inv.client, inv.doc_type, fecha, total, inv.status,
+         xmlContent, xmlContent ? true : false]
       );
-      if (rows.length > 0) {
-        await pool.query(
-          `UPDATE invoices SET client=$1, doc_type=$2, created_at=$3, total=$4, status=$5,
-             xml_content=$6, has_xml=$7, updated_at=NOW() WHERE id=$8`,
-          [inv.client, inv.doc_type, fecha, total, inv.status,
-           xmlContent, xmlContent ? true : false, rows[0].id]
-        );
-        updated++;
-      } else {
-        await pool.query(
-          `INSERT INTO invoices (biller_id, ncf, client, doc_type, created_at, total, status,
-             xml_content, has_xml) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-          [billerId, inv.ncf, inv.client, inv.doc_type, fecha, total, inv.status,
-           xmlContent, xmlContent ? true : false]
-        );
-        inserted++;
-      }
+      if (rowCount === 1) inserted++;
+      else updated++;
     } catch (err) {
       console.error(`  [comprobantes] Error con NCF ${inv.ncf}: ${err.message}`);
     }

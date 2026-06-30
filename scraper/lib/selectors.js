@@ -48,7 +48,6 @@ export const LOGIN = {
     'button:has-text("Acceder")',
     'button:has-text("Iniciar")',
     'button:has-text("Login")',
-    'button:has-text("Ingresar")',
     'a:has-text("Ingresar")',
   ],
 };
