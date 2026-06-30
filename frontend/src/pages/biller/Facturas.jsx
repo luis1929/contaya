@@ -21,6 +21,18 @@ function monthRange() {
   return { desde: firstOfMonth(), hasta: today() };
 }
 
+function detectType(ncf) {
+  if (!ncf) return 'FV';
+  const u = ncf.toUpperCase();
+  if (u.includes('NKR') || u.includes('NC')) return 'NC';
+  if (u.includes('ND')) return 'ND';
+  return 'FV';
+}
+
+function typeLabel(t) {
+  return t === 'NC' ? 'Notas Crédito' : t === 'ND' ? 'Notas Débito' : 'Facturas';
+}
+
 function fmt(n) {
   if (n == null || isNaN(n)) return '$0';
   return '$' + Number(n).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -106,6 +118,15 @@ export default function BillerFacturas() {
   const estSubtotal = totalSum / 1.19;
   const estIva = totalSum - estSubtotal;
 
+  const byType = {};
+  for (const inv of filtered) {
+    const t = detectType(inv.ncf);
+    if (!byType[t]) byType[t] = { count: 0, total: 0 };
+    byType[t].count++;
+    byType[t].total += parseFloat(inv.total) || 0;
+  }
+  const typeOrder = ['FV', 'NC', 'ND'];
+
   const totalPages = Math.ceil(filtered.length / perPage);
   const current = filtered.slice((page - 1) * perPage, page * perPage);
 
@@ -127,6 +148,19 @@ export default function BillerFacturas() {
             </span>
           )}
         </p>
+        {invoices.length > 0 && (
+          <div className="flex gap-4 mt-2 text-sm">
+            {typeOrder.filter(t => byType[t]).map(t => (
+              <div key={t} className="flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-lg border border-gray-200">
+                <span className={`w-2 h-2 rounded-full ${t === 'FV' ? 'bg-blue-500' : t === 'NC' ? 'bg-amber-500' : 'bg-red-500'}`} />
+                <span className="font-medium text-gray-700">{typeLabel(t)}:</span>
+                <span className="text-gray-500">{byType[t].count}</span>
+                <span className="text-gray-300">|</span>
+                <span className="font-semibold text-gray-900">{fmt(byType[t].total)}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap items-end gap-4">
@@ -160,13 +194,9 @@ export default function BillerFacturas() {
         ))}
         <div className="flex items-end gap-2">
           <Button onClick={() => load(filters)}>🔍 Filtrar</Button>
-          <Button variant="secondary" onClick={() => { const reset = { ...monthRange(), estatus: '', cliente: '' }; setFilters(reset); setSelectedYear('mes'); load(reset); }}>
-            Limpiar
-          </Button>
-          <Button variant="ghost" size="sm" onClick={handleSync} disabled={syncing}
-            className={syncing ? 'animate-pulse text-primary' : 'text-gray-500 hover:text-primary'}
-            title="Sincronizar última factura desde FacturaTech">
-            {syncing ? '⏳' : '🔄'}
+          <Button variant={syncing ? 'primary' : 'success'} onClick={handleSync} disabled={syncing}
+            className={syncing ? 'animate-pulse' : ''}>
+            {syncing ? '⏳ Sincronizando...' : '🔄 Sincronizar'}
           </Button>
         </div>
       </div>
