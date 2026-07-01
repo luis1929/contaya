@@ -152,7 +152,7 @@ module.exports = {
     if (estatus) { params.push(estatus); sql += ` AND i.status = $${params.length}`; }
     if (facturador) { params.push(facturador); sql += ` AND i.biller_id = $${params.length}::uuid`; }
     sql += whereBiller(req, params, 'i');
-    sql += ' ORDER BY i.created_at DESC NULLS LAST';
+    sql += ' ORDER BY (regexp_replace(i.ncf, '[^0-9]', '', 'g'))::bigint DESC NULLS LAST';
     const { rows } = await pool.query(sql, params);
     const enriched = rows.map(r => ({ ...r, client_name: extractClientName(r.xml_content || '') || r.client_name || '', total: r.total || 0, xml_content: undefined }));
     success(res, enriched);
