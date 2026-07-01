@@ -222,6 +222,6 @@ async function downloadXml(page, invoice) {
     fs.writeFileSync(xmlPath, text, 'utf8');
     invoice._xml_path = xmlPath;
   } finally {
-    await response.close();
+    await dlPage.close();
   }
 }
