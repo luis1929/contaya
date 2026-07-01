@@ -81,6 +81,7 @@ export default function BillerFacturas() {
   const [selectedYear, setSelectedYear] = useState('mes');
   const [viewerId, setViewerId] = useState(null);
   const [page, setPage] = useState(1);
+  const [syncMessage, setSyncMessage] = useState(null);
   const perPage = 20;
   const filtersRef = useRef(filters);
 
@@ -114,14 +115,20 @@ export default function BillerFacturas() {
 
   const handleSync = async () => {
     setSyncing(true);
+    setSyncMessage(null);
     try {
       const me = await api.getMe();
-      await api.syncBiller(me.id);
-      setTimeout(() => load(filtersRef.current), 3000);
+      const billerId = me.biller_id || me.id;
+      await api.syncBiller(billerId);
+      setSyncMessage({ type: 'success', text: 'Sincronización iniciada. Los datos se actualizarán en breve.' });
+      setTimeout(() => {
+        load(filtersRef.current);
+        setSyncMessage(null);
+      }, 4000);
     } catch (err) {
-      console.error(err);
+      setSyncMessage({ type: 'error', text: err.response?.data?.error || 'Error al iniciar sincronización' });
     } finally {
-      setTimeout(() => setSyncing(false), 1000);
+      setTimeout(() => setSyncing(false), 2000);
     }
   };
 
@@ -196,6 +203,16 @@ export default function BillerFacturas() {
           </div>
         )}
       </div>
+
+      {syncMessage && (
+        <div className={`px-4 py-3 rounded-lg text-sm font-medium ${
+          syncMessage.type === 'error'
+            ? 'bg-red-50 text-red-700 border border-red-200'
+            : 'bg-green-50 text-green-700 border border-green-200'
+        }`}>
+          {syncMessage.text}
+        </div>
+      )}
 
       {invoices.length > 0 && (
         <div className="flex flex-wrap gap-3">
