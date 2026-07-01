@@ -190,38 +190,16 @@ async function downloadXml(page, invoice) {
     return;
   }
 
-  // Handle both navigation and download responses
-  const dlPage = await page.context().newPage();
-  try {
-    // Set up download watcher before navigation
-    const downloadPromise = dlPage.waitForEvent('download', { timeout: 15000 }).catch(() => null);
-    
-    await dlPage.goto(invoice._xml_url, { timeout: 30000, waitUntil: 'networkidle' });
+  const xmlContent = await page.evaluate(async (url) => {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.text();
+  }, invoice._xml_url);
 
-    const download = await downloadPromise;
-
-    if (download) {
-      const downloadPath = await download.path();
-      if (downloadPath) {
-        fs.copyFileSync(downloadPath, xmlPath);
-        invoice._xml_path = xmlPath;
-        return;
-      }
-    }
-
-    // Fallback: read page content directly
-    const content = await dlPage.content();
-    const xmlContent = content.match(/<\?xml[\s\S]*<\/[A-Za-z]+:?[A-Za-z]+>/);
-    const body = xmlContent ? xmlContent[0] : content;
-    const text = body.replace(/<\/?html[^>]*>/gi, '').replace(/<\/?body[^>]*>/gi, '').trim();
-
-    if (!text || text.length < 50 || text.includes('DOCTYPE html') || text.includes('login')) {
-      throw new Error(`Invalid XML (${text.length} chars)`);
-    }
-
-    fs.writeFileSync(xmlPath, text, 'utf8');
-    invoice._xml_path = xmlPath;
-  } finally {
-    await dlPage.close();
+  if (!xmlContent || xmlContent.length < 50 || xmlContent.includes('<!DOCTYPE html') || xmlContent.includes('login')) {
+    throw new Error(`Invalid XML (${xmlContent?.length || 0} chars)`);
   }
+
+  fs.writeFileSync(xmlPath, xmlContent, 'utf8');
+  invoice._xml_path = xmlPath;
 }
