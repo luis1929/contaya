@@ -298,17 +298,17 @@ export default function BillerFacturas() {
 
           <div className="space-y-3">
             <div className="flex flex-wrap gap-1.5">
-              {MONTHS.map(m => (
-                <button
-                  key={m.key}
-                  onClick={() => selectMonth(currentYear, m.key)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
-                    selectedPeriod.type === 'month' && selectedPeriod.month === m.key && selectedPeriod.year === currentYear
-                      ? 'bg-primary text-white shadow-sm scale-[1.02]'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                  }`}>
-                {m.short}
-              ))}
+              {MONTHS.map(function(m) {
+                const isActive = selectedPeriod.type === 'month' && selectedPeriod.month === m.key && selectedPeriod.year === currentYear;
+                return (
+                  <button
+                    key={m.key}
+                    onClick={function() { selectMonth(currentYear, m.key); }}
+                    className={'px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ' + (isActive ? 'bg-primary text-white shadow-sm scale-[1.02]' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900')}>
+                    {m.short}
+                  </button>
+                );
+              })}
             </div>
 
             <div className="flex items-center gap-2">
@@ -334,18 +334,17 @@ export default function BillerFacturas() {
 
             {showHistory && (
               <div className="flex flex-wrap gap-1.5 pt-2 border-t border-gray-100">
-                {pastYears.map(y => (
-                  <button
-                    key={y}
-                    onClick={() => selectYear(y)}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                      selectedPeriod.type === 'year' && selectedPeriod.year === y
-                        ? 'bg-primary text-white shadow-sm'
-                        : 'text-gray-500 hover:bg-gray-100'
-                    }`}>
-                    {y}
-                  </button>
-                ))}
+                {pastYears.map(function(y) {
+                  const isYearActive = selectedPeriod.type === 'year' && selectedPeriod.year === y;
+                  return (
+                    <button
+                      key={y}
+                      onClick={function() { selectYear(y); }}
+                      className={'px-3 py-1.5 text-xs font-medium rounded-lg transition-all ' + (isYearActive ? 'bg-primary text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100')}>
+                      {y}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
