@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { billerContext, whereBiller } = require('../middleware/tenantContext');
 const { error } = require('../lib/response');
-const pool = require('../db');
+const db = require('../db/pool');
 
 // Apply tenant context middleware to all chat routes
 router.use(billerContext);
