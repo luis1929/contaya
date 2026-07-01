@@ -2,6 +2,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 const pool = require('../db/pool');
 const crypto = require('./cryptoService');
+const logger = require('../lib/logger');
 
 const INTERVAL_MS = 20 * 60 * 1000; // 20 minutes
 
@@ -33,23 +34,23 @@ async function syncAll() {
         );
         launchScraper(b.id, username, password);
       } catch (err) {
-        console.error(`[syncScheduler] Error syncing biller ${b.id}: ${err.message}`);
+        logger.error('Error syncing biller', { billerId: b.id, error: err.message });
       }
     }
 
     if (billers.length > 0) {
-      console.log(`[syncScheduler] Synced ${billers.length} billers`);
+      logger.info('Sync cycle completed', { billersCount: billers.length });
     }
   } catch (err) {
-    console.error('[syncScheduler] Error:', err.message);
+    logger.error('Sync cycle failed', { error: err.message });
   }
 }
 
 let timer = null;
 
 function start() {
-  console.log(`[syncScheduler] Started (interval: ${INTERVAL_MS / 60000} min)`);
-  syncAll(); // Run immediately on startup
+  logger.info('Sync scheduler started', { intervalMin: INTERVAL_MS / 60000 });
+  syncAll();
   timer = setInterval(syncAll, INTERVAL_MS);
 }
 
@@ -57,7 +58,7 @@ function stop() {
   if (timer) {
     clearInterval(timer);
     timer = null;
-    console.log('[syncScheduler] Stopped');
+    logger.info('Sync scheduler stopped');
   }
 }
 

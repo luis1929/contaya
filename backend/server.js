@@ -1,21 +1,46 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const compression = require('compression');
+const rateLimit = require('express-rate-limit');
 const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
+const logger = require('./lib/logger');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const isProd = process.env.NODE_ENV === 'production';
 
-app.use(cors());
-app.use(express.json());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: false,
+}));
+app.use(compression());
+
+const corsOptions = {
+  origin: isProd ? process.env.CORS_ORIGIN || true : true,
+  credentials: true,
+};
+app.use(cors(corsOptions));
+app.use(express.json({ limit: '10mb' }));
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiadas solicitudes. Intenta de nuevo en 15 minutos.' },
+  skip: req => req.path === '/api/health',
+});
+app.use('/api/', limiter);
 
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 app.use('/uploads', express.static(uploadDir));
 
 const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
-app.use(express.static(frontendDist));
+app.use(express.static(frontendDist, { maxAge: isProd ? '1y' : 0, immutable: true }));
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/billers', require('./routes/billers'));
@@ -34,19 +59,36 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error('[Error Handler]', err.message || err);
-  if (err.message && err.message.startsWith('Tipo no soportado')) {
+  logger.error(err.message || err, { path: req.path, method: req.method });
+  const status = err.status || 500;
+  if (status === 400) {
     return res.status(400).json({ error: err.message });
   }
   if (err.code === 'LIMIT_FILE_SIZE') {
     return res.status(400).json({ error: 'Archivo demasiado grande. Máximo 20MB' });
   }
-  res.status(500).json({ error: err.message || 'Error interno del servidor' });
+  res.status(status).json({ error: isProd ? 'Error interno del servidor' : err.message });
 });
 
 const syncScheduler = require('./services/syncScheduler');
 
-app.listen(PORT, () => {
-  console.log('Contaya backend running on port ' + PORT);
+const server = app.listen(PORT, () => {
+  logger.info('Backend started', { port: PORT, env: isProd ? 'production' : 'development' });
   syncScheduler.start();
 });
+
+function gracefulShutdown(signal) {
+  logger.info('Shutting down gracefully', { signal });
+  syncScheduler.stop();
+  server.close(() => {
+    logger.info('Server closed', { signal });
+    process.exit(0);
+  });
+  setTimeout(() => {
+    logger.error('Forced shutdown', { signal });
+    process.exit(1);
+  }, 10000);
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
