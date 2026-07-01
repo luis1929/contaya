@@ -26,7 +26,7 @@ export default function ForgotPassword() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-dark to-primary flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#062A51] to-[#2563eb] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md animate-[fadeIn_0.5s_ease-out]">
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-gray-900">Restablecer contraseña</h2>
@@ -41,18 +41,18 @@ export default function ForgotPassword() {
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Correo electrónico</label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)}
               placeholder="correo@ejemplo.com" required disabled={loading}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
             />
           </div>
           <button type="submit" disabled={loading}
-            className="w-full py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-[#062A51] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {loading ? 'Procesando...' : 'Restablecer'}
           </button>
         </form>
 
         <p className="text-center mt-6 text-sm text-gray-500">
-          <Link to="/login" className="text-primary hover:text-primary-dark font-semibold">← Volver al login</Link>
+          <Link to="/login" className="text-blue-600 hover:text-blue-700 font-semibold">← Volver al login</Link>
         </p>
       </div>
     </div>

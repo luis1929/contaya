@@ -28,7 +28,7 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-dark to-primary flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#062A51] to-[#2563eb] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md animate-[fadeIn_0.5s_ease-out]">
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-gray-900">¡Vamos! Regístrate</h2>
@@ -50,13 +50,13 @@ export default function Register() {
                 value={form[f]} onChange={e => setForm({ ...form, [f]: e.target.value })}
                 placeholder={f === 'name' ? 'Tu nombre' : f === 'email' ? 'correo@ejemplo.com' : '••••••••'}
                 required disabled={loading}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
               />
             </div>
           ))}
 
           <button type="submit" disabled={loading}
-            className="w-full py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-[#062A51] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {loading ? (
               <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Registrando...</>
@@ -65,7 +65,7 @@ export default function Register() {
         </form>
 
         <p className="text-center mt-6 text-sm text-gray-500">
-          ¿Ya tienes cuenta? <Link to="/login" className="text-primary hover:text-primary-dark font-semibold">Inicia sesión</Link>
+          ¿Ya tienes cuenta? <Link to="/login" className="text-blue-600 hover:text-blue-700 font-semibold">Inicia sesión</Link>
         </p>
       </div>
     </div>
