@@ -144,14 +144,17 @@ async function parseInvoiceLines(xmlContent) {
 
 module.exports = {
   list: asyncHandler(async (req, res) => {
-    const { desde, hasta, estatus, facturador } = req.query;
+    const { desde, hasta, estatus, facturador, doc_type } = req.query;
     let sql = 'SELECT i.id, i.biller_id, i.ncf, i.status, i.has_xml, i.has_pdf, i.created_at, i.xml_content, i.client_name, i.total, b.name AS biller_name FROM invoices i LEFT JOIN billers b ON i.biller_id = b.id WHERE 1=1';
     const params = [];
     if (desde) { params.push(desde); sql += ` AND i.created_at >= $${params.length}`; }
     if (hasta) { params.push(hasta); sql += ` AND i.created_at <= $${params.length}`; }
     if (estatus) { params.push(estatus); sql += ` AND i.status = $${params.length}`; }
     if (facturador) { params.push(facturador); sql += ` AND i.biller_id = $${params.length}::uuid`; }
+    if (doc_type) { params.push(doc_type); sql += ` AND i.doc_type = $${params.length}`; }
+    sql += ` AND i.ncf NOT LIKE 'SETT-%'`;
     sql += whereBiller(req, params, 'i');
+    sql += " ORDER BY (regexp_replace(i.ncf, '[^0-9]', '', 'g'))::bigint DESC NULLS LAST";
     sql += " ORDER BY (regexp_replace(i.ncf, '[^0-9]', '', 'g'))::bigint DESC NULLS LAST";
     const { rows } = await pool.query(sql, params);
     const enriched = rows.map(r => ({ ...r, client_name: extractClientName(r.xml_content || '') || r.client_name || '', total: r.total || 0, xml_content: undefined }));
@@ -167,6 +170,7 @@ module.exports = {
     if (desde) { params.push(desde); sql += ` AND created_at >= $${params.length}`; }
     if (hasta) { params.push(hasta); sql += ` AND created_at <= $${params.length}`; }
     if (facturador) { params.push(facturador); sql += ` AND biller_id = $${params.length}::uuid`; }
+    sql += ` AND ncf NOT LIKE 'SETT-%'`;
     sql += whereBiller(req, params);
     const { rows } = await pool.query(sql, params);
     success(res, rows[0]);

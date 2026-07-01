@@ -9,6 +9,7 @@ const adminLinks = [
 
 const billerLinks = [
   { to: '/facturas', label: 'Doc-Facturas', icon: '📄' },
+  { to: '/nomina', label: 'Volantes Nómina', icon: '📋' },
   { to: '/upload', label: 'Documentos', icon: '📁' },
   { to: '/declarations', label: 'Declaraciones', icon: '💰' },
   { to: '/credentials', label: 'FacturaTech', icon: '🔐' },

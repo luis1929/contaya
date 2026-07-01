@@ -4,6 +4,21 @@ import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import InvoiceViewer from '../../components/InvoiceViewer';
 
+const MONTHS = [
+  { key: 1, label: 'Enero', short: 'Ene' },
+  { key: 2, label: 'Febrero', short: 'Feb' },
+  { key: 3, label: 'Marzo', short: 'Mar' },
+  { key: 4, label: 'Abril', short: 'Abr' },
+  { key: 5, label: 'Mayo', short: 'May' },
+  { key: 6, label: 'Junio', short: 'Jun' },
+  { key: 7, label: 'Julio', short: 'Jul' },
+  { key: 8, label: 'Agosto', short: 'Ago' },
+  { key: 9, label: 'Septiembre', short: 'Sep' },
+  { key: 10, label: 'Octubre', short: 'Oct' },
+  { key: 11, label: 'Noviembre', short: 'Nov' },
+  { key: 12, label: 'Diciembre', short: 'Dic' },
+];
+
 function today() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -13,12 +28,11 @@ function firstOfMonth() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
 }
 
-function yearRange(year) {
-  return { desde: `${year}-01-01`, hasta: today() };
-}
-
-function monthRange() {
-  return { desde: firstOfMonth(), hasta: today() };
+function monthRange(year, month) {
+  const start = `${year}-${String(month).padStart(2, '0')}-01`;
+  const end = new Date(year, month, 0);
+  const endStr = `${year}-${String(month).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
+  return { desde: start, hasta: endStr };
 }
 
 function endOfDay(dateStr) {
@@ -30,11 +44,12 @@ function detectType(ncf) {
   const u = ncf.toUpperCase();
   if (u.includes('NKR') || u.includes('NC')) return 'NC';
   if (u.includes('ND')) return 'ND';
+  if (u.includes('SETT')) return 'TEST';
   return 'FV';
 }
 
 function typeLabel(t) {
-  return t === 'NC' ? 'Notas Crédito' : t === 'ND' ? 'Notas Débito' : 'Facturas';
+  return t === 'NC' ? 'Notas Crédito' : t === 'ND' ? 'Notas Débito' : t === 'TEST' ? 'Pruebas' : 'Facturas';
 }
 
 function fmt(n) {
@@ -45,15 +60,18 @@ function fmt(n) {
 function calcSubtotal(total, type) {
   const n = parseFloat(total) || 0;
   if (type === 'NC') return -(Math.abs(n) / 1.19);
+  if (type === 'TEST') return 0;
   return n / 1.19;
 }
 
 function calcIva(total, type) {
+  if (type === 'TEST') return 0;
   const sub = calcSubtotal(total, type);
   return sub * 0.19;
 }
 
 function calcNet(total, type) {
+  if (type === 'TEST') return 0;
   const sub = calcSubtotal(total, type);
   return sub + calcIva(total, type);
 }
@@ -67,32 +85,27 @@ const typeConfig = {
   FV: { label: 'Facturas', color: 'border-l-blue-500 bg-blue-50/50', textColor: 'text-blue-700', dot: 'bg-blue-500' },
   NC: { label: 'Notas Crédito', color: 'border-l-amber-500 bg-amber-50/50', textColor: 'text-amber-700', dot: 'bg-amber-500' },
   ND: { label: 'Notas Débito', color: 'border-l-red-500 bg-red-50/50', textColor: 'text-red-700', dot: 'bg-red-500' },
+  TEST: { label: 'Pruebas', color: 'border-l-gray-400 bg-gray-50/50', textColor: 'text-gray-500', dot: 'bg-gray-400' },
 };
 
 const currentYear = new Date().getFullYear();
-const years = Array.from({ length: currentYear - 2023 }, (_, i) => 2024 + i).reverse();
+const currentMonth = new Date().getMonth() + 1;
+const pastYears = Array.from({ length: currentYear - 2023 }, (_, i) => 2024 + i).reverse();
 
 export default function BillerFacturas() {
   const [invoices, setInvoices] = useState([]);
-  const [clientList, setClientList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [filters, setFilters] = useState({ ...monthRange(), estatus: '', cliente: '' });
-  const [selectedYear, setSelectedYear] = useState('mes');
+  const [filters, setFilters] = useState({ ...monthRange(currentYear, currentMonth), estatus: '' });
+  const [selectedPeriod, setSelectedPeriod] = useState({ type: 'month', year: currentYear, month: currentMonth });
   const [viewerId, setViewerId] = useState(null);
   const [page, setPage] = useState(1);
   const [syncMessage, setSyncMessage] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
   const perPage = 20;
   const filtersRef = useRef(filters);
 
   useEffect(() => { filtersRef.current = filters; }, [filters]);
-
-  const loadClients = useCallback(async (desde, hasta) => {
-    try {
-      const data = await api.getClientList({ desde, hasta });
-      setClientList(data);
-    } catch {}
-  }, []);
 
   const load = useCallback(async (filtersToApply) => {
     setLoading(true);
@@ -105,13 +118,12 @@ export default function BillerFacturas() {
       const data = await api.getInvoices(params);
       setInvoices(data);
       setPage(1);
-      loadClients(filtersToApply.desde, filtersToApply.hasta);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [loadClients]);
+  }, []);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -139,39 +151,51 @@ export default function BillerFacturas() {
     load(newFilters);
   }
 
-  const handleYearChange = (val) => {
-    setSelectedYear(val);
-    let newFilters;
-    if (val === 'todos') {
-      newFilters = { ...filters, desde: '', hasta: '' };
-    } else if (val === 'mes') {
-      newFilters = { ...filters, ...monthRange() };
-    } else {
-      const year = Number(val);
-      newFilters = { ...filters, ...yearRange(year) };
-    }
-    setFilters(newFilters);
-    load(newFilters);
+  const selectMonth = (year, month) => {
+    const range = monthRange(year, month);
+    setSelectedPeriod({ type: 'month', year, month });
+    setShowHistory(false);
+    applyFilters({ ...filters, ...range });
   };
 
-  const filtered = filters.cliente
-    ? invoices.filter(inv => inv.client_name?.toLowerCase().includes(filters.cliente.toLowerCase()))
-    : invoices;
+  const selectYear = (year) => {
+    const range = { desde: `${year}-01-01`, hasta: `${year}-12-31` };
+    setSelectedPeriod({ type: 'year', year });
+    setShowHistory(false);
+    applyFilters({ ...filters, ...range });
+  };
+
+  const selectAll = () => {
+    setSelectedPeriod({ type: 'all' });
+    setShowHistory(false);
+    applyFilters({ ...filters, desde: '', hasta: '' });
+  };
+
+  const filtered = invoices.filter(inv => {
+    const t = detectType(inv.ncf);
+    if (t === 'TEST') return false;
+    if (filters.estatus && inv.status !== filters.estatus) return false;
+    return true;
+  });
 
   const byType = {};
   for (const inv of filtered) {
     const t = detectType(inv.ncf);
-    if (!byType[t]) byType[t] = { count: 0, total: 0 };
+    if (!byType[t]) byType[t] = { count: 0, total: 0, subtotal: 0, iva: 0 };
     byType[t].count++;
     byType[t].total += parseFloat(inv.total) || 0;
+    byType[t].subtotal += calcSubtotal(inv.total, t);
+    byType[t].iva += calcIva(inv.total, t);
   }
 
   const netSum = (byType.FV?.total || 0) - (byType.NC?.total || 0) + (byType.ND?.total || 0);
-  const estSubtotal = netSum / 1.19;
-  const estIva = netSum - estSubtotal;
+  const estSubtotal = (byType.FV?.subtotal || 0) - (byType.NC?.subtotal || 0) + (byType.ND?.subtotal || 0);
+  const estIva = (byType.FV?.iva || 0) - (byType.NC?.iva || 0) + (byType.ND?.iva || 0);
 
   const totalPages = Math.ceil(filtered.length / perPage);
   const current = filtered.slice((page - 1) * perPage, page * perPage);
+
+  const isCurrentMonthSelected = selectedPeriod.type === 'month' && selectedPeriod.year === currentYear && selectedPeriod.month === currentMonth;
 
   return (
     <div className="space-y-6">
@@ -180,12 +204,12 @@ export default function BillerFacturas() {
           <h2 className="text-2xl font-bold text-gray-900">Facturación Electrónica</h2>
           <p className="text-gray-500 mt-0.5 text-sm">
             {invoices.length > 0
-              ? `Gestiona y consulta todas tus facturas electrónicas · ${invoices.length} comprobantes`
-              : 'Gestiona y consulta todas tus facturas electrónicas'}
+              ? `Gestiona y consulta tus comprobantes · ${filtered.length} visibles de ${invoices.length} totales`
+              : 'Gestiona y consulta tus comprobantes electrónicos'}
           </p>
         </div>
         {netSum > 0 && (
-          <div className="hidden lg:flex items-center gap-6 bg-white rounded-xl border border-gray-200 px-5 py-3">
+          <div className="hidden lg:flex items-center gap-6 bg-white rounded-xl border border-gray-200 px-5 py-3 shadow-sm">
             <div className="text-right">
               <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Subtotal</p>
               <p className="text-sm font-semibold text-gray-700">{fmt(estSubtotal)}</p>
@@ -205,7 +229,7 @@ export default function BillerFacturas() {
       </div>
 
       {syncMessage && (
-        <div className={`px-4 py-3 rounded-lg text-sm font-medium ${
+        <div className={`px-4 py-3 rounded-lg text-sm font-medium animate-slide-in ${
           syncMessage.type === 'error'
             ? 'bg-red-50 text-red-700 border border-red-200'
             : 'bg-green-50 text-green-700 border border-green-200'
@@ -214,7 +238,7 @@ export default function BillerFacturas() {
         </div>
       )}
 
-      {invoices.length > 0 && (
+      {filtered.length > 0 && (
         <div className="flex flex-wrap gap-3">
           {['FV', 'NC', 'ND'].filter(t => byType[t]).map(t => {
             const cfg = typeConfig[t];
@@ -238,57 +262,93 @@ export default function BillerFacturas() {
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
         <div className="p-4 flex flex-wrap items-end gap-3">
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Período</label>
-            <div className="flex gap-2">
-              <input type="date" value={filters.desde}
-                onChange={e => { setSelectedYear(null); applyFilters({ ...filters, desde: e.target.value }); }}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
-              <span className="text-gray-300 self-center">→</span>
-              <input type="date" value={filters.hasta}
-                onChange={e => { setSelectedYear(null); applyFilters({ ...filters, hasta: e.target.value }); }}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
-            </div>
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Cliente</label>
-            <select value={filters.cliente}
-              onChange={e => setFilters({ ...filters, cliente: e.target.value })}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 min-w-[180px]">
-              <option value="">Todos los clientes</option>
-              {clientList.map(c => (
-                <option key={c.name} value={c.name}>{c.name} ({c.count})</option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1">
             <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Estado</label>
             <select value={filters.estatus}
-              onChange={e => setFilters({ ...filters, estatus: e.target.value })}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/40">
+              onChange={e => applyFilters({ ...filters, estatus: e.target.value })}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 min-w-[160px]">
               <option value="">Todos</option>
               <option value="Firmado">Firmado</option>
               <option value="Pendiente">Pendiente</option>
               <option value="Anulado">Anulado</option>
             </select>
           </div>
+          <div className="flex-1 min-w-[280px]" />
           <div className="flex items-end gap-2">
-            <Button onClick={() => load(filtersRef.current)}>🔍 Filtrar</Button>
+            <Button variant="secondary" onClick={() => load(filtersRef.current)}>
+              🔄 Actualizar
+            </Button>
             <Button variant={syncing ? 'primary' : 'success'} onClick={handleSync} disabled={syncing}
               className={syncing ? 'animate-pulse' : ''}>
               {syncing ? '⏳ Sincronizando...' : '🔄 Sincronizar'}
             </Button>
           </div>
         </div>
-        <div className="px-4 pb-4 flex flex-wrap gap-1.5">
-          {['mes', 'todos', ...years].map(y => {
-            const label = y === 'mes' ? 'Este mes' : y === 'todos' ? 'Todo' : String(y);
-            return (
-              <button key={y} onClick={() => handleYearChange(y)}
-                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${selectedYear === y ? 'bg-primary text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100'}`}>
-                {label}
+
+        <div className="px-4 pb-4">
+          <div className="mb-3 flex items-center gap-2 text-sm text-gray-500">
+            <span className="font-medium text-gray-700">Período:</span>
+            <span className="px-2 py-1 bg-primary/10 text-primary text-xs rounded font-medium">
+              {selectedPeriod.type === 'month' 
+                ? `${MONTHS[selectedPeriod.month - 1].label} ${selectedPeriod.year}`
+                : selectedPeriod.type === 'year' 
+                  ? `${selectedPeriod.year}` 
+                  : 'Todo el historial'}
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-1.5">
+              {MONTHS.map(m => (
+                <button
+                  key={m.key}
+                  onClick={() => selectMonth(currentYear, m.key)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+                    selectedPeriod.type === 'month' && selectedPeriod.month === m.key && selectedPeriod.year === currentYear
+                      ? 'bg-primary text-white shadow-sm scale-[1.02]'
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  }`}>
+                {m.short}
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                  showHistory
+                    ? 'bg-primary/10 text-primary border border-primary/20'
+                    : 'text-gray-500 hover:bg-gray-100'
+                }`}>
+                {showHistory ? '▲ Ocultar historial' : '▼ Historial / Años anteriores'}
               </button>
-            );
-          })}
+              <button
+                onClick={selectAll}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                  selectedPeriod.type === 'all'
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'text-gray-500 hover:bg-gray-100'
+                }`}>
+                Todo
+              </button>
+            </div>
+
+            {showHistory && (
+              <div className="flex flex-wrap gap-1.5 pt-2 border-t border-gray-100">
+                {pastYears.map(y => (
+                  <button
+                    key={y}
+                    onClick={() => selectYear(y)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                      selectedPeriod.type === 'year' && selectedPeriod.year === y
+                        ? 'bg-primary text-white shadow-sm'
+                        : 'text-gray-500 hover:bg-gray-100'
+                    }`}>
+                    {y}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -298,8 +358,8 @@ export default function BillerFacturas() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-          <p className="text-lg text-gray-400 mb-1">📄 No se encontraron facturas</p>
-          <p className="text-sm text-gray-400">Intenta ajustar los filtros</p>
+          <p className="text-lg text-gray-400 mb-1">📄 No se encontraron comprobantes</p>
+          <p className="text-sm text-gray-400">Intenta cambiar el período o estado</p>
         </div>
       ) : (
         <>
@@ -318,70 +378,76 @@ export default function BillerFacturas() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {current.map((inv, i) => (
-                    <tr key={inv.id} className="hover:bg-gray-50 transition-colors fade-in" style={{ animationDelay: `${i * 0.03}s` }}>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full ${detectType(inv.ncf) === 'FV' ? 'bg-blue-500' : detectType(inv.ncf) === 'NC' ? 'bg-amber-500' : 'bg-red-500'}`} />
-                          <button onClick={() => setViewerId(inv.id)}
-                            className="text-sm font-mono font-medium text-primary hover:text-primary-dark hover:underline cursor-pointer">
-                            {inv.ncf || '—'}
-                          </button>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{inv.client_name || '—'}</td>
-                      <td className="px-4 py-3 text-sm text-gray-400">{inv.created_at?.slice(0, 10)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600 text-right">{fmt(calcSubtotal(inv.total, detectType(inv.ncf)))}</td>
-                      <td className="px-4 py-3 text-sm text-primary text-right">{fmt(calcIva(inv.total, detectType(inv.ncf)))}</td>
-                      <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">{fmt(calcNet(inv.total, detectType(inv.ncf)))}</td>
-                      <td className="px-4 py-3 text-center">
-                        <Badge color={inv.status === 'Firmado' ? 'success' : inv.status === 'Anulado' ? 'danger' : 'warning'}>
-                          {inv.status}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
+                  {current.map((inv, i) => {
+                    const t = detectType(inv.ncf);
+                    return (
+                      <tr key={inv.id} className="hover:bg-gray-50 transition-colors fade-in" style={{ animationDelay: `${i * 0.03}s` }}>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2 h-2 rounded-full ${t === 'FV' ? 'bg-blue-500' : t === 'NC' ? 'bg-amber-500' : t === 'ND' ? 'bg-red-500' : 'bg-gray-400'}`} />
+                            <button onClick={() => setViewerId(inv.id)}
+                              className="text-sm font-mono font-medium text-primary hover:text-primary-dark hover:underline cursor-pointer">
+                              {inv.ncf || '—'}
+                            </button>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{inv.client_name || '—'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-400">{inv.created_at?.slice(0, 10)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600 text-right">{fmt(calcSubtotal(inv.total, t))}</td>
+                        <td className="px-4 py-3 text-sm text-primary text-right">{fmt(calcIva(inv.total, t))}</td>
+                        <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">{fmt(calcNet(inv.total, t))}</td>
+                        <td className="px-4 py-3 text-center">
+                          <Badge color={inv.status === 'Firmado' ? 'success' : inv.status === 'Anulado' ? 'danger' : 'warning'}>
+                            {inv.status}
+                          </Badge>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           </div>
 
           <div className="md:hidden space-y-3">
-            {current.map((inv, i) => (
-              <div key={inv.id} className="bg-white rounded-xl border border-gray-200 p-4 space-y-2 fade-in" style={{ animationDelay: `${i * 0.03}s` }}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${detectType(inv.ncf) === 'FV' ? 'bg-blue-500' : detectType(inv.ncf) === 'NC' ? 'bg-amber-500' : 'bg-red-500'}`} />
-                    <button onClick={() => setViewerId(inv.id)} className="text-primary font-mono text-sm font-medium hover:underline">
-                      {inv.ncf || '—'}
-                    </button>
+            {current.map((inv, i) => {
+              const t = detectType(inv.ncf);
+              return (
+                <div key={inv.id} className="bg-white rounded-xl border border-gray-200 p-4 space-y-2 fade-in" style={{ animationDelay: `${i * 0.03}s` }}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${t === 'FV' ? 'bg-blue-500' : t === 'NC' ? 'bg-amber-500' : t === 'ND' ? 'bg-red-500' : 'bg-gray-400'}`} />
+                      <button onClick={() => setViewerId(inv.id)} className="text-primary font-mono text-sm font-medium hover:underline">
+                        {inv.ncf || '—'}
+                      </button>
+                    </div>
+                    <Badge color={inv.status === 'Firmado' ? 'success' : inv.status === 'Anulado' ? 'danger' : 'warning'}>
+                      {inv.status}
+                    </Badge>
                   </div>
-                  <Badge color={inv.status === 'Firmado' ? 'success' : inv.status === 'Anulado' ? 'danger' : 'warning'}>
-                    {inv.status}
-                  </Badge>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Cliente</span>
+                    <span className="font-medium text-gray-900 text-right">{inv.client_name || '—'}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Fecha</span>
+                    <span className="text-gray-600">{inv.created_at?.slice(0, 10)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Subtotal</span>
+                    <span className="text-gray-600">{fmt(calcSubtotal(inv.total, t))}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">IVA 19%</span>
+                    <span className="text-primary">{fmt(calcIva(inv.total, t))}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Total</span>
+                    <span className="font-bold text-gray-900">{fmt(calcNet(inv.total, t))}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Cliente</span>
-                  <span className="font-medium text-gray-900 text-right">{inv.client_name || '—'}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Fecha</span>
-                  <span className="text-gray-600">{inv.created_at?.slice(0, 10)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Subtotal</span>
-                  <span className="text-gray-600">{fmt(calcSubtotal(inv.total, detectType(inv.ncf)))}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">IVA 19%</span>
-                  <span className="text-primary">{fmt(calcIva(inv.total, detectType(inv.ncf)))}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Total</span>
-                  <span className="font-bold text-gray-900">{fmt(calcNet(inv.total, detectType(inv.ncf)))}</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </>
       )}

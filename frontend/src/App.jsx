@@ -20,6 +20,7 @@ import BillerCredentials from './pages/biller/Credentials';
 import BillerRutUpload from './pages/biller/RutUpload';
 import BillerItems from './pages/biller/Items';
 import BillerAnalytics from './pages/biller/Analytics';
+import BillerNomina from './pages/biller/Nomina';
 import BillerFacturacion from './pages/Facturas';
 
 import CompanyPage from './pages/CompanyPage';
@@ -54,6 +55,7 @@ function App() {
           <Route path="/rut-upload" element={<BillerRutUpload />} />
           <Route path="/items" element={<BillerItems />} />
           <Route path="/analytics" element={<BillerAnalytics />} />
+          <Route path="/nomina" element={<BillerNomina />} />
           <Route path="/facturacion" element={<BillerFacturacion />} />
           <Route path="/company" element={<CompanyPage />} />
         </Route>
